@@ -1,4 +1,6 @@
-/* --- Root Variables for Premium Dark Theme --- */
+/* =======================================================
+   ROOT VARIABLES (Premium Dark Theme)
+   ======================================================= */
 :root {
     --bg-color: #0B0E14; /* Deep Slate/Black */
     --surface-color: #151A22; /* Slightly lighter card */
@@ -32,7 +34,9 @@ body {
     overflow: hidden;
 }
 
-/* Mobile-first App Container constraints */
+/* =======================================================
+   CONTAINER & SCREEN TRANSITIONS (Mobile First)
+   ======================================================= */
 .app-container {
     width: 100%;
     max-width: 420px; /* Industry standard mobile width */
@@ -46,7 +50,6 @@ body {
     flex-direction: column;
 }
 
-/* Screen Transitions */
 .screen {
     position: absolute;
     top: 0;
@@ -59,6 +62,8 @@ body {
     visibility: hidden;
     transform: translateX(20px);
     transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    background-color: var(--bg-color);
+    z-index: 10;
 }
 
 .screen.active {
@@ -71,7 +76,26 @@ body {
     display: none;
 }
 
-/* Header & Branding */
+/* =======================================================
+   TYPOGRAPHY & UTILITIES
+   ======================================================= */
+h1, h2 { font-weight: 700; letter-spacing: -0.5px; }
+.subtitle, .instruction { color: var(--text-muted); font-size: 14px; margin-top: 8px; line-height: 1.5; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-primary { color: var(--primary-color); }
+.text-danger { color: var(--danger-color); }
+.mt-10 { margin-top: 10px; }
+.mt-20 { margin-top: 20px; }
+.mb-10 { margin-bottom: 10px; }
+.padding-24 { padding: 24px; }
+.d-flex { display: flex; }
+.gap-10 { gap: 10px; }
+.break-word { word-break: break-all; }
+
+/* =======================================================
+   BRANDING & HEADER NAV
+   ======================================================= */
 .branding {
     flex: 1;
     display: flex;
@@ -91,17 +115,33 @@ body {
     filter: drop-shadow(0px 4px 12px rgba(20, 241, 149, 0.3));
 }
 
-h1, h2 { font-weight: 700; letter-spacing: -0.5px; }
-.subtitle, .instruction { color: var(--text-muted); font-size: 14px; margin-top: 8px; line-height: 1.5; }
+.header-nav { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 20px 24px; 
+    border-bottom: 1px solid var(--border-color); 
+}
+.btn-icon { 
+    background: transparent; 
+    border: none; 
+    color: var(--text-main); 
+    font-size: 20px; 
+    cursor: pointer; 
+    transition: color 0.2s;
+}
+.btn-icon:active { color: var(--primary-color); }
 
-/* Action Bottom Fixed */
+/* =======================================================
+   BUTTONS (Premium)
+   ======================================================= */
 .action-bottom {
     padding: 24px;
-    padding-bottom: 40px; /* Safe area */
+    padding-bottom: 40px; 
     background: linear-gradient(to top, var(--bg-color) 80%, transparent);
+    margin-top: auto;
 }
 
-/* Premium Buttons */
 .btn {
     width: 100%;
     padding: 16px;
@@ -114,7 +154,7 @@ h1, h2 { font-weight: 700; letter-spacing: -0.5px; }
     justify-content: center;
     align-items: center;
     gap: 10px;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .btn-primary {
@@ -122,16 +162,35 @@ h1, h2 { font-weight: 700; letter-spacing: -0.5px; }
     color: #000;
     box-shadow: 0 4px 14px rgba(20, 241, 149, 0.2);
 }
-
 .btn-primary:active { transform: scale(0.98); background-color: var(--primary-hover); }
 
 .btn-secondary { background-color: var(--surface-color); color: var(--text-main); margin-top: 12px; }
 .btn-secondary:active { background-color: var(--surface-light); }
 
 .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+.btn-outline-dashed {
+    background: transparent; border: 1px dashed var(--border-color);
+    color: var(--text-muted); width: 100%; padding: 16px; border-radius: var(--radius-md);
+    cursor: pointer; font-weight: 600; transition: border-color 0.2s;
+}
+.btn-outline-dashed:active { border-color: var(--primary-color); color: var(--text-main); }
 
-/* Seed Grid */
+/* =======================================================
+   FORMS & INPUTS (Seed Phrase, Verify, Send)
+   ======================================================= */
 .content-body { padding: 24px; flex: 1; overflow-y: auto; }
+
+.alert-box.warning {
+    background: rgba(255, 165, 0, 0.1);
+    border: 1px solid rgba(255, 165, 0, 0.3);
+    color: #FFA500;
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    gap: 12px;
+    font-size: 13px;
+}
+
 .seed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
 .seed-word {
     background: var(--surface-color);
@@ -145,34 +204,157 @@ h1, h2 { font-weight: 700; letter-spacing: -0.5px; }
 }
 .seed-word span { color: var(--text-muted); font-size: 12px; width: 24px; }
 
-/* Alert Box */
-.alert-box.warning {
-    background: rgba(255, 165, 0, 0.1);
-    border: 1px solid rgba(255, 165, 0, 0.3);
-    color: #FFA500;
-    padding: 12px;
-    border-radius: 8px;
-    display: flex;
-    gap: 12px;
+/* Input Styles */
+.premium-input {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-main);
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.premium-input:focus { border-color: var(--primary-color); }
+
+.private-key-box label, .verify-group label, .amount-header label {
+    display: block;
     font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
 }
+.verify-group { margin-bottom: 16px; }
 
-/* Keypad for PIN */
-.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 0 40px 20px; }
+.copy-input {
+    display: flex;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.copy-input input {
+    flex: 1; background: transparent; border: none;
+    padding: 14px 16px; color: var(--text-main); outline: none; font-family: monospace;
+}
+.copy-input button {
+    background: transparent; border: none;
+    border-left: 1px solid var(--border-color);
+    padding: 0 16px; color: var(--primary-color); cursor: pointer;
+}
+.copy-input button:active { background: var(--surface-light); }
+
+/* =======================================================
+   PIN KEYPAD
+   ======================================================= */
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 0 40px 20px; margin-top: auto; }
 .key {
-    background: var(--surface-color); border: none; border-radius: 50%;
+    background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 50%;
     color: white; font-size: 24px; height: 70px; width: 70px;
-    justify-self: center; cursor: pointer; transition: background 0.1s;
+    justify-self: center; cursor: pointer; transition: background 0.1s, transform 0.1s;
 }
-.key:active { background: var(--surface-light); }
-.key.invisible { background: transparent; pointer-events: none; }
+.key:active { background: var(--surface-light); transform: scale(0.95); }
+.key.invisible { background: transparent; border: none; pointer-events: none; }
 
-/* PIN Dots */
-.pin-display { display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; }
-.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border-color); }
-.pin-dot.filled { background-color: var(--primary-color); border-color: var(--primary-color); box-shadow: 0 0 8px var(--primary-color); }
+.pin-display { display: flex; justify-content: center; gap: 12px; margin-bottom: 30px; }
+.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border-color); transition: all 0.2s; }
+.pin-dot.filled { background-color: var(--primary-color); border-color: var(--primary-color); box-shadow: 0 0 8px rgba(20, 241, 149, 0.5); }
 
-/* Header Nav */
-.header-nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
-.btn-icon { background: transparent; border: none; color: var(--text-main); font-size: 20px; cursor: pointer; }
-.mt-20 { margin-top: 20px; } .mb-10 { margin-bottom: 10px; }
+/* =======================================================
+   DASHBOARD LAYOUT (main.html)
+   ======================================================= */
+.top-navbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 24px; border-bottom: 1px solid var(--border-color);
+}
+.logo-area { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+.nav-actions { display: flex; gap: 15px; }
+
+.view-section { 
+    flex: 1; overflow-y: auto; padding-bottom: 90px; /* Space for bottom nav */
+}
+
+.wallet-address-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface-color); padding: 8px 16px;
+    border-radius: 20px; font-size: 14px; border: 1px solid var(--border-color);
+    margin: 0 auto; transition: background 0.2s;
+}
+.wallet-address-badge:active { background: var(--surface-light); }
+.badge-pill { color: var(--text-main); font-weight: 600; }
+
+.amount-header { display: flex; justify-content: space-between; align-items: center; }
+.max-btn { color: var(--primary-color); font-size: 12px; font-weight: 600; cursor: pointer; }
+
+/* Asset & TX Cards */
+.asset-card, .tx-item, .menu-item {
+    background: var(--surface-color);
+    padding: 16px; border-radius: var(--radius-md);
+    display: flex; align-items: center; gap: 16px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 12px;
+    transition: transform 0.2s, border-color 0.2s;
+}
+.asset-card:active, .tx-item:active, .menu-item:active { 
+    transform: scale(0.98); border-color: var(--border-color); background: var(--surface-light); 
+}
+
+.asset-icon, .tx-icon {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 20px; border: 1px solid var(--border-color);
+}
+.asset-icon { background: linear-gradient(45deg, #111, #222); color: var(--primary-color); }
+.tx-icon { background: rgba(255,255,255,0.05); }
+.tx-icon.receive { color: var(--primary-color); }
+.tx-icon.send { color: var(--text-main); }
+
+.asset-info, .tx-info { flex: 1; }
+.asset-info h3, .tx-info h4 { font-size: 16px; margin-bottom: 4px; }
+.price-change { font-size: 12px; }
+.price-change.positive { color: var(--primary-color); }
+.asset-balance h3 { font-size: 16px; margin-bottom: 4px; }
+
+/* Bottom Nav */
+.bottom-nav {
+    display: flex; justify-content: space-around; align-items: center;
+    padding: 12px 0 24px; /* safe area for iOS */
+    background: rgba(11, 14, 20, 0.9);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border-color);
+    position: absolute; bottom: 0; width: 100%; z-index: 50;
+}
+.nav-item {
+    background: transparent; border: none; color: var(--text-muted); 
+    font-size: 12px; font-weight: 600;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer; transition: color 0.2s;
+}
+.nav-item i { font-size: 20px; }
+.nav-item.active { color: var(--primary-color); }
+
+/* =======================================================
+   MODALS / OVERLAYS (Slide up animations)
+   ======================================================= */
+.modal-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(5px);
+    display: flex; flex-direction: column; justify-content: flex-end;
+    z-index: 100;
+    opacity: 0; visibility: hidden; transition: all 0.3s ease;
+}
+.modal-overlay:not(.hidden) { opacity: 1; visibility: visible; }
+
+.modal-content {
+    background: var(--bg-color);
+    border-top-left-radius: var(--radius-lg);
+    border-top-right-radius: var(--radius-lg);
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    display: flex; flex-direction: column;
+    max-height: 90%;
+}
+.modal-overlay:not(.hidden) .modal-content { transform: translateY(0); }
+.modal-content.full-height { height: 100%; max-height: 100%; border-radius: 0; }
