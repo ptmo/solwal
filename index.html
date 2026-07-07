@@ -13,8 +13,8 @@
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body class="dark-mode">
-
-    <!-- Container Utama Mobile First -->
+    <div id="toast-container" class="toast-container"></div>
+    
     <div class="app-container">
         
         <!-- STEP 0: Welcome Screen -->
@@ -106,29 +106,32 @@
         <!-- STEP 3: Create PIN -->
         <div id="step-pin-setup" class="screen hidden">
             <div class="header-nav">
-                <h2>Secure Your Wallet</h2>
+                <button class="btn-icon" onclick="resetPinAndGoBack()"><i class="fa-solid fa-arrow-left"></i></button>
+                <h2 id="pinTitle">Create PIN</h2>
+                <div style="width: 24px;"></div>
             </div>
+            
             <div class="content-body text-center">
-                <i class="fa-solid fa-shield-halved lock-icon"></i>
-                <p class="instruction mt-20">Create an 8-digit PIN to secure your device. This is required to access your wallet and send transactions.</p>
+                <div id="pinStatusIcon" class="mt-10 mb-10">
+                    <i class="fa-solid fa-shield-halved lock-icon" style="font-size: 32px; color: var(--text-muted);"></i>
+                </div>
+                <p id="pinInstruction" class="instruction mt-20">Create an 8-digit PIN to secure your device.</p>
                 
                 <div class="pin-display mt-20">
                     <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
                     <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
                 </div>
             </div>
-            <!-- Custom Keypad -->
-            <div class="keypad">
+            
+            <div class="keypad" id="pinKeypad">
                 <button class="key">1</button><button class="key">2</button><button class="key">3</button>
                 <button class="key">4</button><button class="key">5</button><button class="key">6</button>
                 <button class="key">7</button><button class="key">8</button><button class="key">9</button>
                 <button class="key invisible"></button><button class="key">0</button><button class="key"><i class="fa-solid fa-delete-left"></i></button>
             </div>
-            <div class="action-bottom">
-                <button class="btn btn-outline mb-10" onclick="downloadKeystore()">
-                    <i class="fa-solid fa-file-arrow-down"></i> Download Keystore JSON
-                </button>
-                <button class="btn btn-primary" onclick="goToStep('step-create-2')">Next <i class="fa-solid fa-arrow-right"></i></button>
+            
+            <div class="action-bottom hidden" id="unlockActionBtn">
+                <button class="btn btn-primary" id="confirmPinBtn">Unlock Wallet <i class="fa-solid fa-unlock-keyhole"></i></button>
             </div>
         </div>
 
