@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MySolWallet | Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/style.css">
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+</head>
+<body class="dark-mode">
+
+    <div class="app-container">
+        
+        <div class="top-navbar">
+            <div class="logo-area">
+                <i class="fa-brands fa-solana text-primary" style="font-size: 24px;"></i>
+                <span class="brand-text">MySolWallet</span>
+            </div>
+            <div class="nav-actions">
+                <button id="langToggle" class="btn-icon"><i class="fa-solid fa-globe"></i></button>
+                <button id="notifBtn" class="btn-icon"><i class="fa-solid fa-bell"></i></button>
+                <button id="themeToggle" class="btn-icon"><i class="fa-solid fa-moon"></i></button>
+            </div>
+        </div>
+
+        <div id="view-home" class="view-section active">
+            <div class="wallet-address-badge text-center mt-20" onclick="copyAddress()" style="cursor: pointer;">
+                <span id="shortAddress" class="badge-pill">Sol...9xZ</span> 
+                <i class="fa-regular fa-copy"></i>
+            </div>
+            
+            <div class="balance-display text-center mt-20">
+                <h1 id="totalUsdBalance">$0.00</h1>
+                <p class="subtitle">Total Portfolio</p>
+            </div>
+
+            <div class="asset-list mt-20 padding-24">
+                <div class="asset-card" onclick="openAssetAction('SOL')" style="cursor: pointer;">
+                    <div class="asset-icon"><i class="fa-brands fa-solana"></i></div>
+                    <div class="asset-info">
+                        <h3>Solana</h3>
+                        <p class="price-change positive"><i class="fa-solid fa-caret-up"></i> 5.2%</p>
+                    </div>
+                    <div class="asset-balance text-right">
+                        <h3 id="solBalance">0.00 SOL</h3>
+                        <p id="solUsdValue" class="subtitle">$0.00</p>
+                    </div>
+                </div>
+
+                <button class="btn btn-outline-dashed mt-20"><i class="fa-solid fa-plus"></i> Import SPL Token</button>
+            </div>
+        </div>
+
+        <div id="view-transaction" class="view-section hidden">
+            <div class="padding-24">
+                <h2>Transaction History</h2>
+                <div class="tx-list mt-20" id="txHistoryList">
+                    <div class="tx-item">
+                        <div class="tx-icon receive"><i class="fa-solid fa-arrow-down"></i></div>
+                        <div class="tx-info">
+                            <h4>Receive SOL</h4>
+                            <p class="subtitle">Confirmed</p>
+                        </div>
+                        <div class="tx-amount text-primary">+1.50 SOL</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-setting" class="view-section hidden">
+            <div class="padding-24">
+                <h2>Security & Settings</h2>
+                <div class="settings-menu mt-20">
+                    <button class="menu-item"><i class="fa-solid fa-shield-halved"></i> Security Level</button>
+                    <button class="menu-item"><i class="fa-solid fa-key"></i> Reveal Secret Phrase</button>
+                    <button class="menu-item text-danger"><i class="fa-solid fa-right-from-bracket"></i> Lock Wallet</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-send" class="modal-overlay hidden">
+            <div class="modal-content slide-up">
+                <div class="header-nav">
+                    <button class="btn-icon" onclick="closeModal('modal-send')"><i class="fa-solid fa-xmark"></i></button>
+                    <h2>Send SOL</h2>
+                    <div style="width: 24px;"></div>
+                </div>
+                <div class="padding-24">
+                    <label>Recipient Address (Solana)</label>
+                    <input type="text" id="sendAddress" placeholder="Paste Solana Address" class="premium-input mt-10">
+                    
+                    <div class="amount-header mt-20">
+                        <label>Amount</label>
+                        <span class="max-btn" onclick="setMaxAmount()">MAX: <span id="maxSol">0.00</span></span>
+                    </div>
+                    <input type="number" id="sendAmount" placeholder="0.00" class="premium-input mt-10">
+                    
+                    <button class="btn btn-primary mt-20" onclick="openConfirmModal()">Review Send <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-confirm" class="modal-overlay hidden">
+            <div class="modal-content slide-up text-center padding-24">
+                <h2>Confirm Transaction</h2>
+                <div class="confirm-details mt-20">
+                    <p>You are sending</p>
+                    <h1 id="confirmAmount" class="text-primary mt-10">0.00 SOL</h1>
+                    <p class="mt-10">To Address:</p>
+                    <p id="confirmAddress" class="subtitle break-word">---</p>
+                </div>
+                <div class="action-bottom d-flex gap-10 mt-20">
+                    <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Cancel</button>
+                    <button class="btn btn-primary" onclick="openPinModal()">Yes, Send</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="modal-pin-tx" class="modal-overlay hidden">
+            <div class="modal-content slide-up full-height">
+                <div class="header-nav">
+                    <button class="btn-icon" onclick="closeModal('modal-pin-tx')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h2>Enter PIN</h2>
+                    <div style="width: 24px;"></div>
+                </div>
+                <div class="padding-24 text-center">
+                    <p class="subtitle">Enter your 8-digit PIN to sign this transaction.</p>
+                    </div>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <button class="nav-item active" onclick="switchView('home')"><i class="fa-solid fa-wallet"></i><br>Home</button>
+            <button class="nav-item" onclick="switchView('transaction')"><i class="fa-solid fa-clock-rotate-left"></i><br>History</button>
+            <button class="nav-item" onclick="switchView('setting')"><i class="fa-solid fa-gear"></i><br>Setting</button>
+        </div>
+        
+    </div>
+
+    <script src="assets/crypto.js"></script>
+    <script src="assets/app.js"></script>
+</body>
+</html>

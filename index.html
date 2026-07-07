@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MySolWallet | Secure Portal</title>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body class="dark-mode">
+
+    <!-- Container Utama Mobile First -->
+    <div class="app-container">
+        
+        <!-- STEP 0: Welcome Screen -->
+        <div id="step-welcome" class="screen active">
+            <div class="branding">
+                <i class="fa-brands fa-solana solana-logo"></i>
+                <h1>MySolWallet</h1>
+                <p class="subtitle">Secure. Premium. Non-Custodial.</p>
+            </div>
+            <div class="action-bottom">
+                <button class="btn btn-primary" onclick="goToStep('step-create-1')">
+                    <i class="fa-solid fa-plus"></i> Create New Wallet
+                </button>
+                <button class="btn btn-secondary" onclick="goToStep('step-import-1')">
+                    <i class="fa-solid fa-download"></i> Import Wallet
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 1: Create Wallet (Show Seed Phrase) -->
+        <div id="step-create-1" class="screen hidden">
+            <div class="header-nav">
+                <button class="btn-icon" onclick="goToStep('step-welcome')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h2>Secret Phrase</h2>
+                <div style="width: 24px;"></div> <!-- Spacer -->
+            </div>
+            
+            <div class="content-body">
+                <div class="alert-box warning">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <p>Write down these 12 words. Do not share them with anyone.</p>
+                </div>
+                
+                <div class="seed-grid" id="seedPhraseGrid">
+                    <!-- Javascript will populate this: <div class="seed-word"><span>1</span> apple</div> -->
+                </div>
+                
+                <div class="private-key-box mt-20">
+                    <label>Private Key</label>
+                    <div class="copy-input">
+                        <input type="password" value="5K... (Hidden)" readonly id="privKeyDisplay">
+                        <button onclick="copyPrivKey()"><i class="fa-regular fa-copy"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-bottom">
+                <button class="btn btn-outline mb-10"><i class="fa-solid fa-file-arrow-down"></i> Download Keystore JSON</button>
+                <button class="btn btn-primary" onclick="goToStep('step-create-2')">Next <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+        </div>
+
+        <!-- STEP 2: Verify Seed Phrase -->
+        <div id="step-create-2" class="screen hidden">
+            <div class="header-nav">
+                <button class="btn-icon" onclick="goToStep('step-create-1')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h2>Verify Phrase</h2>
+                <div style="width: 24px;"></div>
+            </div>
+            <div class="content-body">
+                <p class="instruction">Please select the correct words for the following positions to verify your backup.</p>
+                
+                <!-- Dynamic Verification Form -->
+                <div class="verify-group mt-20">
+                    <label>Word #4</label>
+                    <input type="text" placeholder="Enter word #4" class="premium-input">
+                </div>
+                <div class="verify-group">
+                    <label>Word #7</label>
+                    <input type="text" placeholder="Enter word #7" class="premium-input">
+                </div>
+                <div class="verify-group">
+                    <label>Word #11</label>
+                    <input type="text" placeholder="Enter word #11" class="premium-input">
+                </div>
+            </div>
+            <div class="action-bottom">
+                <button class="btn btn-primary" onclick="goToStep('step-pin-setup')">Verify & Next</button>
+            </div>
+        </div>
+
+        <!-- STEP 3: Create PIN -->
+        <div id="step-pin-setup" class="screen hidden">
+            <div class="header-nav">
+                <h2>Secure Your Wallet</h2>
+            </div>
+            <div class="content-body text-center">
+                <i class="fa-solid fa-shield-halved lock-icon"></i>
+                <p class="instruction mt-20">Create an 8-digit PIN to secure your device. This is required to access your wallet and send transactions.</p>
+                
+                <div class="pin-display mt-20">
+                    <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+                    <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+                </div>
+            </div>
+            <!-- Custom Keypad -->
+            <div class="keypad">
+                <button class="key">1</button><button class="key">2</button><button class="key">3</button>
+                <button class="key">4</button><button class="key">5</button><button class="key">6</button>
+                <button class="key">7</button><button class="key">8</button><button class="key">9</button>
+                <button class="key invisible"></button><button class="key">0</button><button class="key"><i class="fa-solid fa-delete-left"></i></button>
+            </div>
+            <div class="action-bottom">
+                <button class="btn btn-primary" id="confirmPinBtn">Confirm & Login</button>
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        function goToStep(stepId) {
+            document.querySelectorAll('.screen').forEach(el => {
+                el.classList.remove('active');
+                el.classList.add('hidden');
+            });
+            document.getElementById(stepId).classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById(stepId).classList.add('active');
+            }, 10);
+        }
+    </script>
+
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="assets/crypto.js"></script>
+    <script src="assets/app.js"></script>
+    </body>
+</html>
