@@ -125,27 +125,17 @@
                 <button class="key invisible"></button><button class="key">0</button><button class="key"><i class="fa-solid fa-delete-left"></i></button>
             </div>
             <div class="action-bottom">
-                <button class="btn btn-primary" id="confirmPinBtn">Confirm & Login</button>
+                <button class="btn btn-outline mb-10" onclick="downloadKeystore()">
+                    <i class="fa-solid fa-file-arrow-down"></i> Download Keystore JSON
+                </button>
+                <button class="btn btn-primary" onclick="goToStep('step-create-2')">Next <i class="fa-solid fa-arrow-right"></i></button>
             </div>
         </div>
-        
-    </div>
 
-    <script>
-        function goToStep(stepId) {
-            document.querySelectorAll('.screen').forEach(el => {
-                el.classList.remove('active');
-                el.classList.add('hidden');
-            });
-            document.getElementById(stepId).classList.remove('hidden');
-            setTimeout(() => {
-                document.getElementById(stepId).classList.add('active');
-            }, 10);
-        }
-    </script>
+        </div>
 
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="assets/crypto.js"></script>
     <script src="assets/app.js"></script>
-    </body>
+</body>
 </html>
