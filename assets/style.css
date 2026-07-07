@@ -29,18 +29,18 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    height: 100vh; /* Fallback untuk browser lama */
+    height: 100dvh; /* KUNCI PERBAIKAN: Menyesuaikan tinggi dinamis browser HP */
     color: var(--text-main);
     overflow: hidden;
 }
 
-/* =======================================================
-   CONTAINER & SCREEN TRANSITIONS (Mobile First)
-   ======================================================= */
+/* Mobile-first App Container constraints */
 .app-container {
     width: 100%;
-    max-width: 420px; /* Industry standard mobile width */
-    height: 100vh;
+    max-width: 420px;
+    height: 100vh; /* Fallback */
+    height: 100dvh; /* KUNCI PERBAIKAN */
     max-height: 850px;
     background-color: var(--bg-color);
     position: relative;
@@ -64,6 +64,7 @@ body {
     transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     background-color: var(--bg-color);
     z-index: 10;
+    overflow-y: auto; /* KUNCI PERBAIKAN: Mencegah tombol terpotong jika layar pendek */
 }
 
 .screen.active {
@@ -137,7 +138,7 @@ h1, h2 { font-weight: 700; letter-spacing: -0.5px; }
    ======================================================= */
 .action-bottom {
     padding: 24px;
-    padding-bottom: 40px; 
+    padding-bottom: 24px; /* KUNCI PERBAIKAN: Dikurangi dari 40px */
     background: linear-gradient(to top, var(--bg-color) 80%, transparent);
     margin-top: auto;
 }
