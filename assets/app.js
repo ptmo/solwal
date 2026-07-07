@@ -9,26 +9,30 @@ let currentWalletState = {
 };
 
 // ==========================================
-// TOAST NOTIFICATION ENGINE (Premium)
+// TOAST NOTIFICATION ENGINE (Bulletproof)
 // ==========================================
 function showToast(message, type = 'success') {
-    let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        container.className = 'toast-container';
-        document.body.appendChild(container);
-    }
+    const container = document.getElementById('toast-container');
+    if (!container) return;
 
     const toast = document.createElement('div');
     toast.className = `glass-toast toast-${type}`;
     
-    let icon = 'fa-circle-info';
-    if(type === 'success') icon = 'fa-circle-check';
-    if(type === 'error') icon = 'fa-circle-xmark';
-    if(type === 'warning') icon = 'fa-triangle-exclamation';
+    // Set icon berdasarkan tipe
+    let iconClass = 'fa-circle-info';
+    if(type === 'success') iconClass = 'fa-circle-check';
+    if(type === 'error') iconClass = 'fa-circle-xmark';
+    if(type === 'warning') iconClass = 'fa-triangle-exclamation';
 
-    toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+    // Buat elemen secara spesifik agar terhindar dari bug innerHTML
+    const iconEl = document.createElement('i');
+    iconEl.className = `fa-solid ${iconClass}`;
+    
+    const textEl = document.createElement('span');
+    textEl.innerText = message;
+
+    toast.appendChild(iconEl);
+    toast.appendChild(textEl);
     container.appendChild(toast);
 
     // Animasi masuk (Soft intro)
@@ -40,7 +44,6 @@ function showToast(message, type = 'success') {
         setTimeout(() => toast.remove(), 400); 
     }, 3000);
 }
-
 
 // ==========================================
 // FASE 1: ONBOARDING LOGIC
@@ -153,13 +156,46 @@ function downloadKeystore() {
     showToast("Keystore JSON downloaded successfully!", "success");
 }
 
-// Logika Keypad PIN
+// ==========================================
+// LOGIKA PIN (CREATE -> CONFIRM -> UNLOCK)
+// ==========================================
 let enteredPin = "";
+let firstPin = "";
+let pinStage = "create"; // 'create' atau 'confirm'
+
+const pinDots = document.querySelectorAll('.pin-dot');
+const pinTitle = document.getElementById('pinTitle');
+const pinInstruction = document.getElementById('pinInstruction');
+const pinKeypad = document.getElementById('pinKeypad');
+const unlockActionBtn = document.getElementById('unlockActionBtn');
+const pinStatusIcon = document.getElementById('pinStatusIcon');
+
+// Fungsi Reset UI PIN
+function resetPinUI() {
+    enteredPin = "";
+    pinDots.forEach(dot => dot.classList.remove('filled'));
+}
+
+// Fungsi tombol back khusus di halaman PIN
+window.resetPinAndGoBack = function() {
+    firstPin = "";
+    pinStage = "create";
+    pinTitle.innerText = "Create PIN";
+    pinInstruction.innerText = "Create an 8-digit PIN to secure your device.";
+    pinStatusIcon.innerHTML = '<i class="fa-solid fa-shield-halved lock-icon" style="font-size: 32px; color: var(--text-muted);"></i>';
+    
+    unlockActionBtn.classList.add('hidden');
+    pinKeypad.style.display = "grid";
+    resetPinUI();
+    
+    goToStep('step-create-2'); // Kembali ke halaman verify
+}
+
+// Event Listener Keypad
 document.querySelectorAll('.keypad .key').forEach(btn => {
     btn.addEventListener('click', (e) => {
         const val = e.target.innerText;
         const isDelete = e.target.closest('.key').innerHTML.includes('fa-delete-left');
-        const pinDots = document.querySelectorAll('.pin-dot');
 
         if (isDelete) {
             enteredPin = enteredPin.slice(0, -1);
@@ -167,23 +203,66 @@ document.querySelectorAll('.keypad .key').forEach(btn => {
             enteredPin += val;
         }
 
+        // Update Dots Animasi
         pinDots.forEach((dot, index) => {
             if (index < enteredPin.length) dot.classList.add('filled');
             else dot.classList.remove('filled');
         });
+
+        // Jika sudah 8 digit, evaluasi logic
+        if (enteredPin.length === 8) {
+            setTimeout(handlePinStage, 150); // Delay sedikit agar dot terakhir sempat terlihat
+        }
     });
 });
 
+function handlePinStage() {
+    if (pinStage === "create") {
+        // Simpan pin pertama, pindah ke stage konfirmasi
+        firstPin = enteredPin;
+        pinStage = "confirm";
+        resetPinUI();
+        
+        // Ubah UI menjadi Confirm
+        pinTitle.innerText = "Confirm PIN";
+        pinInstruction.innerText = "Please re-enter your 8-digit PIN to confirm.";
+        showToast("PIN captured, please confirm.", "info");
+
+    } else if (pinStage === "confirm") {
+        if (enteredPin === firstPin) {
+            // MATCH! Sukses
+            pinTitle.innerText = "PIN Confirmed!";
+            pinInstruction.innerText = "Your wallet is ready to be encrypted.";
+            pinInstruction.style.color = "var(--primary-color)";
+            
+            // Ubah icon jadi centang hijau
+            pinStatusIcon.innerHTML = '<i class="fa-solid fa-circle-check" style="font-size: 42px; color: var(--primary-color);"></i>';
+            
+            // Sembunyikan keypad, munculkan tombol Unlock
+            pinKeypad.style.display = "none";
+            unlockActionBtn.classList.remove('hidden');
+            showToast("PIN matched successfully!", "success");
+            
+        } else {
+            // MISMATCH! Gagal
+            showToast("PINs do not match! Please try again.", "error");
+            // Kembalikan ke stage create
+            firstPin = "";
+            pinStage = "create";
+            pinTitle.innerText = "Create PIN";
+            pinInstruction.innerText = "Create an 8-digit PIN to secure your device.";
+            resetPinUI();
+        }
+    }
+}
+
+// Eksekusi Enkripsi Saat Unlock Diklik
 const confirmPinBtn = document.getElementById('confirmPinBtn');
 if (confirmPinBtn) {
     confirmPinBtn.addEventListener('click', async () => {
-        if (enteredPin.length !== 8) {
-            showToast("PIN must be exactly 8 digits.", "warning");
-            return;
-        }
         confirmPinBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Encrypting...';
         confirmPinBtn.disabled = true;
-        await finalizeWalletSetup(enteredPin);
+        await finalizeWalletSetup(firstPin);
     });
 }
 
@@ -203,15 +282,14 @@ async function finalizeWalletSetup(pin) {
         localStorage.setItem('MySolWallet_PubKey', pubKey);
         sessionStorage.removeItem('tempPrivKey');
         
-        showToast("Wallet Secured! Logging in...", "success");
+        showToast("Wallet Secured! Entering Dashboard...", "success");
         setTimeout(() => window.location.href = 'main.html', 1000);
     } catch (error) {
         showToast("Encryption failed.", "error");
-        confirmPinBtn.innerHTML = 'Confirm & Login';
+        confirmPinBtn.innerHTML = 'Unlock Wallet <i class="fa-solid fa-unlock-keyhole"></i>';
         confirmPinBtn.disabled = false;
     }
 }
-
 
 // ==========================================
 // FASE 2: DASHBOARD SPA (main.html logic)
