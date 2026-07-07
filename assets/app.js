@@ -1,6 +1,5 @@
 // app.js - Main Application Logic (SPA & Web3)
 
-// Inisialisasi Koneksi RPC Solana (MAINNET)
 const RPC_URL = "https://api.mainnet-beta.solana.com"; 
 const connection = new solanaWeb3.Connection(RPC_URL, 'confirmed');
 
@@ -10,100 +9,157 @@ let currentWalletState = {
 };
 
 // ==========================================
-// FASE 1: ONBOARDING (index.html logic)
+// TOAST NOTIFICATION ENGINE (Premium)
+// ==========================================
+function showToast(message, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `glass-toast toast-${type}`;
+    
+    let icon = 'fa-circle-info';
+    if(type === 'success') icon = 'fa-circle-check';
+    if(type === 'error') icon = 'fa-circle-xmark';
+    if(type === 'warning') icon = 'fa-triangle-exclamation';
+
+    toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+    container.appendChild(toast);
+
+    // Animasi masuk (Soft intro)
+    setTimeout(() => toast.classList.add('show'), 10);
+
+    // Animasi keluar setelah 3 detik
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400); 
+    }, 3000);
+}
+
+
+// ==========================================
+// FASE 1: ONBOARDING LOGIC
 // ==========================================
 
-// 1. Generate Wallet Baru (Dipanggil saat masuk step 1)
+// Global Route Controller (Kebal terhadap local file system)
+window.goToStep = function(stepId) {
+    // Jika masuk ke langkah create, paksa trigger fungsi generate!
+    if(stepId === 'step-create-1') {
+        createNewWallet(); 
+    }
+    
+    document.querySelectorAll('.screen').forEach(el => {
+        el.classList.remove('active');
+        el.classList.add('hidden');
+    });
+    
+    const target = document.getElementById(stepId);
+    if(target) {
+        target.classList.remove('hidden');
+        setTimeout(() => target.classList.add('active'), 10);
+    }
+};
+
 async function createNewWallet() {
-    console.log("Generating new wallet...");
+    showToast("Generating secure keys...", "info");
+    
     const keypair = solanaWeb3.Keypair.generate();
     const pubKey = keypair.publicKey.toString();
-    
     const secretKeyArray = Array.from(keypair.secretKey);
-    const privKeyString = JSON.stringify(secretKeyArray); // Format Array standar Solana CLI
+    const privKeyString = JSON.stringify(secretKeyArray);
 
-    // --- A. Menampilkan Private Key ---
     const privKeyDisplay = document.getElementById('privKeyDisplay');
-    if(privKeyDisplay) {
-        privKeyDisplay.value = privKeyString; 
-    }
+    if(privKeyDisplay) privKeyDisplay.value = privKeyString; 
     
-    // --- B. Generate & Menampilkan 12 Seed Phrase ---
     const seedPhraseGrid = document.getElementById('seedPhraseGrid');
-    seedPhraseGrid.innerHTML = ""; // Bersihkan grid sebelum diisi
-
-    // Catatan Standar Industri: 
-    // Di lingkungan JS Murni tanpa Node.js/Webpack, kita tidak memiliki library 'bip39' bawaan 
-    // untuk men-derive kata menjadi kunci. Jadi, kita menggunakan 12 kata acak kriptografis 
-    // standar BIP39 HANYA untuk keperluan UI/UX dan keamanan lapis verifikasi di tahap ini.
-    const wordList = ["abstract", "bacon", "cabin", "dad", "eagle", "fabric", "gadget", "habit", "ice", "jacket", "kangaroo", "labor", "machine", "narrow", "oasis", "pact", "radar", "sad", "tact", "vacant", "wagon", "yacht", "zebra"];
-    
-    let generatedWords = [];
-    for(let i = 1; i <= 12; i++) {
-        // Ambil kata acak secara aman menggunakan Web Crypto API
-        const randomValues = new Uint32Array(1);
-        window.crypto.getRandomValues(randomValues);
-        const randomIdx = randomValues[0] % wordList.length;
-        const word = wordList[randomIdx];
+    if (seedPhraseGrid) {
+        seedPhraseGrid.innerHTML = ""; 
+        const wordList = ["abstract", "bacon", "cabin", "dad", "eagle", "fabric", "gadget", "habit", "ice", "jacket", "kangaroo", "labor", "machine", "narrow", "oasis", "pact", "radar", "sad", "tact", "vacant", "wagon", "yacht", "zebra"];
         
-        generatedWords.push(word);
-        
-        // Masukkan kata ke dalam HTML
-        const div = document.createElement('div');
-        div.className = 'seed-word';
-        div.innerHTML = `<span>${i}</span> ${word}`;
-        seedPhraseGrid.appendChild(div);
+        for(let i = 1; i <= 12; i++) {
+            const randomValues = new Uint32Array(1);
+            window.crypto.getRandomValues(randomValues);
+            const randomIdx = randomValues[0] % wordList.length;
+            const word = wordList[randomIdx];
+            
+            const div = document.createElement('div');
+            div.className = 'seed-word';
+            div.innerHTML = `<span>${i}</span> ${word}`;
+            seedPhraseGrid.appendChild(div);
+        }
     }
     
-    // Simpan kunci rahasia sementara
     sessionStorage.setItem('tempPrivKey', privKeyString);
     sessionStorage.setItem('tempPubKey', pubKey);
 }
 
-// Fungsi untuk Menampilkan/Menyembunyikan Private Key (Eye Icon)
 function toggleViewPrivKey() {
     const input = document.getElementById('privKeyDisplay');
     const icon = document.getElementById('eyeIcon');
+    if (!input) return;
     
     if (input.type === "password") {
         input.type = "text";
-        icon.classList.remove('fa-eye');
-        icon.classList.add('fa-eye-slash');
+        icon.classList.replace('fa-eye', 'fa-eye-slash');
     } else {
         input.type = "password";
-        icon.classList.remove('fa-eye-slash');
-        icon.classList.add('fa-eye');
+        icon.classList.replace('fa-eye-slash', 'fa-eye');
     }
 }
 
-// Fungsi untuk Copy Private Key ke Clipboard
 function copyPrivKey() {
     const input = document.getElementById('privKeyDisplay');
-    
-    if (!input.value) {
-        alert("Private Key is empty!");
+    if (!input || !input.value) {
+        showToast("Private Key is empty!", "error");
         return;
     }
-
-    // Menggunakan Clipboard API modern yang aman
     navigator.clipboard.writeText(input.value).then(() => {
-        alert("Private Key berhasil disalin ke clipboard!");
-    }).catch(err => {
-        console.error("Gagal menyalin: ", err);
-        alert("Gagal menyalin ke clipboard.");
+        showToast("Copied to clipboard", "success");
+    }).catch(() => {
+        showToast("Failed to copy", "error");
     });
 }
 
-// 2. Logika Keypad PIN (8 Digit)
-let enteredPin = "";
-const pinDots = document.querySelectorAll('.pin-dot');
+// Fungsi Download JSON (Keystore)
+function downloadKeystore() {
+    const privKey = sessionStorage.getItem('tempPrivKey');
+    const pubKey = sessionStorage.getItem('tempPubKey');
+    
+    if(!privKey || !pubKey) {
+        showToast("Wallet not generated yet!", "error");
+        return;
+    }
+    
+    // Format JSON Wallet Standar
+    const keystore = {
+        network: "solana",
+        publicKey: pubKey,
+        privateKey: JSON.parse(privKey)
+    };
+    
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(keystore, null, 2));
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", `MySolWallet_${pubKey.slice(0,6)}.json`);
+    document.body.appendChild(dlAnchorElem);
+    dlAnchorElem.click();
+    dlAnchorElem.remove();
+    
+    showToast("Keystore JSON downloaded successfully!", "success");
+}
 
+// Logika Keypad PIN
+let enteredPin = "";
 document.querySelectorAll('.keypad .key').forEach(btn => {
     btn.addEventListener('click', (e) => {
         const val = e.target.innerText;
-        
-        // Cek jika icon delete diklik (dalam elemen span/i)
         const isDelete = e.target.closest('.key').innerHTML.includes('fa-delete-left');
+        const pinDots = document.querySelectorAll('.pin-dot');
 
         if (isDelete) {
             enteredPin = enteredPin.slice(0, -1);
@@ -111,7 +167,6 @@ document.querySelectorAll('.keypad .key').forEach(btn => {
             enteredPin += val;
         }
 
-        // Update UI Dots
         pinDots.forEach((dot, index) => {
             if (index < enteredPin.length) dot.classList.add('filled');
             else dot.classList.remove('filled');
@@ -119,19 +174,15 @@ document.querySelectorAll('.keypad .key').forEach(btn => {
     });
 });
 
-// 3. Eksekusi Enkripsi setelah Confirm diklik (Perbaikan dari index.html)
 const confirmPinBtn = document.getElementById('confirmPinBtn');
 if (confirmPinBtn) {
     confirmPinBtn.addEventListener('click', async () => {
         if (enteredPin.length !== 8) {
-            alert("PIN must be exactly 8 digits.");
+            showToast("PIN must be exactly 8 digits.", "warning");
             return;
         }
-
-        // Ganti tombol jadi loading
         confirmPinBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Encrypting...';
         confirmPinBtn.disabled = true;
-
         await finalizeWalletSetup(enteredPin);
     });
 }
@@ -141,25 +192,21 @@ async function finalizeWalletSetup(pin) {
     const pubKey = sessionStorage.getItem('tempPubKey');
 
     if (!privKey) {
-        alert("Session expired. Please restart the process.");
-        window.location.reload();
+        showToast("Session expired. Please restart.", "error");
+        setTimeout(() => window.location.reload(), 1500);
         return;
     }
 
     try {
         const encryptedWallet = await CryptoService.encryptData(privKey, pin);
-        
         localStorage.setItem('MySolWallet_Data', encryptedWallet);
         localStorage.setItem('MySolWallet_PubKey', pubKey);
-
         sessionStorage.removeItem('tempPrivKey');
-        enteredPin = ""; 
-
-        window.location.href = 'main.html';
+        
+        showToast("Wallet Secured! Logging in...", "success");
+        setTimeout(() => window.location.href = 'main.html', 1000);
     } catch (error) {
-        console.error("Encryption failed:", error);
-        alert("Encryption failed. Please try again.");
-        // Reset button
+        showToast("Encryption failed.", "error");
         confirmPinBtn.innerHTML = 'Confirm & Login';
         confirmPinBtn.disabled = false;
     }
@@ -169,14 +216,11 @@ async function finalizeWalletSetup(pin) {
 // ==========================================
 // FASE 2: DASHBOARD SPA (main.html logic)
 // ==========================================
-
-// Fungsi Navigasi Tab (Bottom Nav)
 function switchView(viewId) {
     document.querySelectorAll('.view-section').forEach(el => {
         el.classList.remove('active');
         el.classList.add('hidden');
     });
-    
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
 
     const selectedView = document.getElementById(`view-${viewId}`);
@@ -184,11 +228,9 @@ function switchView(viewId) {
         selectedView.classList.remove('hidden');
         selectedView.classList.add('active');
     }
-    
     if(event) event.currentTarget.classList.add('active');
 }
 
-// Modals Controller (Untuk Send Flow)
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if(modal) modal.classList.remove('hidden');
@@ -199,55 +241,41 @@ function closeModal(modalId) {
     if(modal) modal.classList.add('hidden');
 }
 
-// Trigger saat klik Aset Solana di Dashboard
 function openAssetAction(assetStr) {
-    if(assetStr === 'SOL') {
-        openModal('modal-send');
-    }
+    if(assetStr === 'SOL') openModal('modal-send');
 }
 
-// Set nilai max transfer
 function setMaxAmount() {
     const input = document.getElementById('sendAmount');
     if(input) input.value = currentWalletState.balances.sol;
 }
 
-// Buka Modal Konfirmasi (Review)
 function openConfirmModal() {
     const address = document.getElementById('sendAddress').value;
     const amount = document.getElementById('sendAmount').value;
 
     if(!address || !amount || amount <= 0) {
-        alert("Please enter a valid address and amount.");
+        showToast("Valid address & amount required", "warning");
         return;
     }
-
     document.getElementById('confirmAddress').innerText = address;
     document.getElementById('confirmAmount').innerText = `${amount} SOL`;
-
     closeModal('modal-send');
     openModal('modal-confirm');
 }
 
-// Lanjut ke input PIN untuk Tanda Tangan
 function openPinModal() {
     closeModal('modal-confirm');
     openModal('modal-pin-tx');
-    enteredPin = ""; // reset pin global
-    // Hapus titik PIN yang terisi di modal transaksi (jika ada)
+    enteredPin = ""; 
     document.querySelectorAll('#modal-pin-tx .pin-dot').forEach(dot => dot.classList.remove('filled'));
 }
 
-// Inisialisasi Dashboard
 async function initDashboard() {
     const savedPubKey = localStorage.getItem('MySolWallet_PubKey');
-    if (!savedPubKey) {
-        window.location.href = 'index.html'; 
-        return;
-    }
+    if (!savedPubKey) return;
 
     currentWalletState.publicKey = savedPubKey;
-    
     const shortAddr = `${savedPubKey.slice(0, 4)}...${savedPubKey.slice(-4)}`;
     const addrEl = document.getElementById('shortAddress');
     if(addrEl) addrEl.innerText = shortAddr;
@@ -255,54 +283,42 @@ async function initDashboard() {
     await fetchBalances(savedPubKey);
 }
 
-// Fetch Data Saldo
 async function fetchBalances(pubKeyStr) {
     try {
         const pubKey = new solanaWeb3.PublicKey(pubKeyStr);
-        
         const lamports = await connection.getBalance(pubKey);
         const solBalance = lamports / solanaWeb3.LAMPORTS_PER_SOL;
         
-        // Simpan di state agar bisa dipanggil fungsi setMaxAmount
         currentWalletState.balances.sol = solBalance; 
-
-        // Update UI Max Amount
         const maxSolEl = document.getElementById('maxSol');
         if(maxSolEl) maxSolEl.innerText = solBalance.toFixed(4);
 
         const priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
         const priceData = await priceRes.json();
         const solPriceUsd = priceData.solana.usd;
-
         const totalUsdValue = solBalance * solPriceUsd;
-        currentWalletState.balances.usd = totalUsdValue;
 
         if(document.getElementById('solBalance')) {
             document.getElementById('solBalance').innerText = `${solBalance.toFixed(4)} SOL`;
             document.getElementById('solUsdValue').innerText = `$${totalUsdValue.toFixed(2)}`;
             document.getElementById('totalUsdBalance').innerText = `$${totalUsdValue.toFixed(2)}`;
         }
-
     } catch (error) {
         console.error("Gagal mengambil data:", error);
     }
 }
 
-// ==========================================
-// FASE 3: EKSEKUSI TRANSAKSI
-// ==========================================
-
-// Fungsi ini akan dipanggil oleh logika PIN di dalam modal main.html (jika sudah dibuat)
 async function executeTransaction(pinEntered) {
     const destinationAddress = document.getElementById('sendAddress').value;
     const amountSol = parseFloat(document.getElementById('sendAmount').value);
 
     try {
+        showToast("Decrypting & Signing...", "info");
         const encryptedData = localStorage.getItem('MySolWallet_Data');
         const decryptedPrivKeyStr = await CryptoService.decryptData(encryptedData, pinEntered);
         
         if (!decryptedPrivKeyStr) {
-            alert("Incorrect PIN! Transaction Cancelled.");
+            showToast("Incorrect PIN!", "error");
             return;
         }
 
@@ -318,50 +334,24 @@ async function executeTransaction(pinEntered) {
             })
         );
 
-        console.log("Mengirim transaksi...");
         const signature = await solanaWeb3.sendAndConfirmTransaction(
             connection,
             transaction,
             [senderKeypair] 
         );
 
-        alert(`Success! TX Hash: ${signature}`);
+        showToast("Transaction Success!", "success");
         closeModal('modal-pin-tx');
+        fetchBalances(senderKeypair.publicKey.toString()); 
         
-        fetchBalances(senderKeypair.publicKey.toString()); // Refresh
-        
-        // Reset inputs
         document.getElementById('sendAddress').value = "";
         document.getElementById('sendAmount').value = "";
 
     } catch (error) {
-        console.error("Transaksi Gagal:", error);
-        alert("Transaction Failed. Check balance or address.");
+        showToast("Transaction Failed. Check balance.", "error");
     }
 }
 
-
-// ==========================================
-// ROUTER SEDERHANA UNTUK INISIALISASI
-// ==========================================
 if (window.location.pathname.includes('main.html')) {
     window.onload = initDashboard;
-} else if (window.location.pathname.includes('index.html') || window.location.pathname === '/') {
-    // Inject fungsi goToStep khusus agar bisa me-trigger generate wallet
-    const originalGoToStep = window.goToStep || function(){};
-    window.goToStep = function(stepId) {
-        if(stepId === 'step-create-1') {
-            createNewWallet(); // Panggil fungsi JS saat masuk step 1
         }
-        
-        document.querySelectorAll('.screen').forEach(el => {
-            el.classList.remove('active');
-            el.classList.add('hidden');
-        });
-        const target = document.getElementById(stepId);
-        if(target) {
-            target.classList.remove('hidden');
-            setTimeout(() => target.classList.add('active'), 10);
-        }
-    };
-}
