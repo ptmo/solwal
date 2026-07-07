@@ -55,8 +55,15 @@
                 <div class="private-key-box mt-20">
                     <label>Private Key</label>
                     <div class="copy-input">
-                        <input type="password" value="5K... (Hidden)" readonly id="privKeyDisplay">
-                        <button onclick="copyPrivKey()"><i class="fa-regular fa-copy"></i></button>
+                        <input type="password" value="" readonly id="privKeyDisplay">
+                        
+                        <button onclick="toggleViewPrivKey()" id="viewBtn" title="Show/Hide">
+                            <i class="fa-regular fa-eye" id="eyeIcon"></i>
+                        </button>
+                        
+                        <button onclick="copyPrivKey()" title="Copy to Clipboard">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
                     </div>
                 </div>
             </div>
