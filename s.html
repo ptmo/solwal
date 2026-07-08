@@ -7,6 +7,7 @@
     
     <!-- Solana Web3 & Icons -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/easyqrcodejs@4.6.1/dist/easy.qrcode.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     
@@ -169,6 +170,26 @@
         .modal-content { background: var(--bg-color); border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg); box-shadow: 0 -10px 40px rgba(0,0,0,0.5); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); display: flex; flex-direction: column; max-height: 90%; }
         .modal-overlay:not(.hidden) .modal-content { transform: translateY(0); }
         .modal-content.full-height { height: 100%; max-height: 100%; border-radius: 0; }
+
+        /* =======================================================
+           REVISI UI (Tombol Bundar & Layout Baru)
+           ======================================================= */
+        .justify-content-center { justify-content: center; }
+        .gap-20 { gap: 20px; }
+        .text-left { text-align: left; }
+        
+        .action-buttons { margin-top: 24px; margin-bottom: 10px; }
+        .action-btn-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+        .circle-btn {
+            width: 56px; height: 56px; border-radius: 50%; border: none;
+            background: var(--primary-color); color: #000; font-size: 20px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 4px 14px rgba(20, 241, 149, 0.2); transition: transform 0.2s;
+        }
+        .action-btn-wrapper:active .circle-btn { transform: scale(0.95); }
+        .action-btn-wrapper span { font-size: 13px; font-weight: 600; color: var(--text-main); }
+        
+        .qr-wrapper { background: #fff; padding: 16px; border-radius: 16px; display: inline-block; }
     </style>
 </head>
 <body class="dark-mode">
@@ -264,13 +285,27 @@
 
             <!-- Home View -->
             <div id="view-home" class="view-section active">
+                
                 <div class="wallet-address-badge text-center mt-20" onclick="copyAddress()">
                     <span id="shortAddress" class="badge-pill">Sol...9xZ</span> <i class="fa-regular fa-copy"></i>
                 </div>
-                <div class="balance-display text-center mt-20">
+                
+                <div class="balance-display text-center mt-10">
                     <h1 id="totalUsdBalance">$0.00</h1>
                     <p class="subtitle">Total Portfolio</p>
                 </div>
+
+                <div class="action-buttons d-flex justify-content-center gap-20">
+                    <div class="action-btn-wrapper" onclick="openReceiveModal()">
+                        <button class="circle-btn"><i class="fa-solid fa-arrow-down"></i></button>
+                        <span>Receive</span>
+                    </div>
+                    <div class="action-btn-wrapper" onclick="openModal('modal-send')">
+                        <button class="circle-btn"><i class="fa-solid fa-arrow-up"></i></button>
+                        <span>Send</span>
+                    </div>
+                </div>
+
                 <div class="asset-list mt-20 padding-24">
                     <div class="asset-card" onclick="openAssetAction('SOL')">
                         <div class="asset-icon"><i class="fa-brands fa-solana"></i></div>
@@ -306,16 +341,58 @@
                 </div>
             </div>
 
-            <!-- Send Modal -->
+            <!-- Receive & Send Modal -->
+            <div id="modal-receive" class="modal-overlay hidden">
+                <div class="modal-content slide-up text-center padding-24" style="max-height: 95%; overflow-y: auto;">
+                    <div class="header-nav" style="padding: 0 0 20px 0; border: none;">
+                        <button class="btn-icon" onclick="closeModal('modal-receive')"><i class="fa-solid fa-arrow-left"></i></button>
+                        <h2>Receive SOL</h2>
+                        <div style="width: 24px;"></div>
+                    </div>
+                    
+                    <div id="qrcode-container" class="qr-wrapper mt-10"></div>
+                    
+                    <button class="btn btn-outline-dashed mt-20" onclick="downloadQR()"><i class="fa-solid fa-download"></i> Download QR Image</button>
+
+                    <div class="mt-20 text-left">
+                        <label>Request Amount (Optional)</label>
+                        <input type="number" id="requestAmount" placeholder="0.00 SOL" class="premium-input mt-10" oninput="updateReceiveQR()">
+                    </div>
+
+                    <div class="mt-20 text-left">
+                        <label>Your Solana Address</label>
+                        <div class="copy-input mt-10">
+                            <input type="text" id="fullAddressDisplay" readonly>
+                            <button onclick="copyAddress()"><i class="fa-regular fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div id="modal-send" class="modal-overlay hidden">
-                <div class="modal-content slide-up">
-                    <div class="header-nav"><button class="btn-icon" onclick="closeModal('modal-send')"><i class="fa-solid fa-xmark"></i></button><h2>Send SOL</h2><div style="width: 24px;"></div></div>
+                <div class="modal-content slide-up full-height">
+                    <div class="header-nav">
+                        <button class="btn-icon" onclick="closeModal('modal-send')"><i class="fa-solid fa-xmark"></i></button>
+                        <h2>Send SOL</h2>
+                        <div style="width: 24px;"></div>
+                    </div>
                     <div class="padding-24">
                         <label>Recipient Address (Solana)</label>
-                        <input type="text" id="sendAddress" placeholder="Paste Solana Address" class="premium-input mt-10">
-                        <div class="amount-header mt-20"><label>Amount</label><span class="max-btn" onclick="setMaxAmount()">MAX: <span id="maxSol">0.00</span></span></div>
+                        <div class="d-flex gap-10 mt-10">
+                            <input type="text" id="sendAddress" placeholder="Paste Solana Address" class="premium-input" oninput="verifyAddress()">
+                            <button class="btn-icon" style="background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0 16px;" onclick="showToast('Camera scanner needs HTTPS & permission', 'info')">
+                                <i class="fa-solid fa-qrcode"></i>
+                            </button>
+                        </div>
+                        <p id="addressStatus" style="font-size: 12px; margin-top: 8px; color: var(--text-muted);"></p>
+                        
+                        <div class="amount-header mt-20">
+                            <label>Amount</label>
+                            <span class="max-btn" onclick="setMaxAmount()">MAX: <span id="maxSol">0.00</span> SOL</span>
+                        </div>
                         <input type="number" id="sendAmount" placeholder="0.00" class="premium-input mt-10">
-                        <button class="btn btn-primary mt-20" onclick="openConfirmModal()">Review Send <i class="fa-solid fa-arrow-right"></i></button>
+                        
+                        <button class="btn btn-primary mt-20" id="reviewSendBtn" onclick="openConfirmModal()" disabled>Review Send <i class="fa-solid fa-arrow-right"></i></button>
                     </div>
                 </div>
             </div>
@@ -618,6 +695,83 @@
             if(!addr || !amt || amt <= 0) return showToast("Valid address & amount required", "warning");
             document.getElementById('confirmAddress').innerText = addr; document.getElementById('confirmAmount').innerText = `${amt} SOL`;
             closeModal('modal-send'); openModal('modal-confirm');
+        }
+
+        // --- FITUR QR CODE & RECEIVE FLOW ---
+        let qrCodeInstance = null;
+
+        function openReceiveModal() {
+            const pubKey = currentWalletState.publicKey;
+            document.getElementById('fullAddressDisplay').value = pubKey;
+            document.getElementById('requestAmount').value = '';
+            
+            // Format standar Solana Pay
+            generateQR(`solana:${pubKey}`);
+            openModal('modal-receive');
+        }
+
+        function updateReceiveQR() {
+            const pubKey = currentWalletState.publicKey;
+            const amount = document.getElementById('requestAmount').value;
+            
+            let qrText = `solana:${pubKey}`;
+            if(amount && amount > 0) qrText += `?amount=${amount}`;
+            
+            generateQR(qrText);
+        }
+
+        function generateQR(text) {
+            const container = document.getElementById('qrcode-container');
+            container.innerHTML = ""; // Bersihkan QR sebelumnya
+            
+            // Render QR Code dengan Logo Solana di tengah
+            qrCodeInstance = new QRCode(container, {
+                text: text,
+                width: 220,
+                height: 220,
+                logo: "https://cryptologos.cc/logos/solana-sol-logo.png", // Logo Solana transparan
+                logoWidth: 60,
+                logoHeight: 60,
+                logoBackgroundTransparent: true,
+                correctLevel: QRCode.CorrectLevel.H // Level H wajib jika pakai Logo
+            });
+        }
+
+        function downloadQR() {
+            const canvas = document.querySelector('#qrcode-container canvas');
+            if(!canvas) return showToast("QR Code not ready", "error");
+            
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL("image/png");
+            a.download = `Solana_QR_${currentWalletState.publicKey.slice(0,6)}.png`;
+            a.click();
+            showToast("QR Downloaded successfully!", "success");
+        }
+
+        // --- FITUR SEND & CHECKSUM VERIFICATION ---
+        function verifyAddress() {
+            const addrInput = document.getElementById('sendAddress').value;
+            const statusEl = document.getElementById('addressStatus');
+            const reviewBtn = document.getElementById('reviewSendBtn');
+
+            if(addrInput.length === 0) {
+                statusEl.innerText = "";
+                reviewBtn.disabled = true;
+                return;
+            }
+
+            try {
+                // Validasi Checksum Native Solana Web3
+                new solanaWeb3.PublicKey(addrInput);
+                
+                statusEl.innerHTML = "<i class='fa-solid fa-circle-check'></i> Valid Solana Address";
+                statusEl.style.color = "var(--primary-color)";
+                reviewBtn.disabled = false;
+            } catch (error) {
+                statusEl.innerHTML = "<i class='fa-solid fa-circle-xmark'></i> Invalid Solana Address";
+                statusEl.style.color = "var(--danger-color)";
+                reviewBtn.disabled = true;
+            }
         }
 
         // --- Logika Keypad PIN Transaksi ---
