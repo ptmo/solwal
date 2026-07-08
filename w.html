@@ -262,8 +262,10 @@
 
                 <div class="p-24" style="padding-top:0;">
                     <div class="flex-between" style="margin-bottom:16px;">
-                        <h3 id="txt-assets">Assets</h3>
-                        <button class="btn-icon" style="font-size:14px;" onclick="App.UI.showToast('Import token coming soon')"><i class="fa-solid fa-plus"></i></button>
+    <h3 id="txt-assets">Assets</h3>
+    <button class="btn-icon" style="font-size:14px;" onclick="App.UI.openSheet('sheet-import-token')">
+        <i class="fa-solid fa-plus"></i>
+    </button>
                     </div>
                     <div id="asset-list">
                         <!-- Rendered via JS -->
@@ -404,6 +406,19 @@
             </div>
         </div>
 
+        <div id="sheet-import-token" class="overlay" onclick="if(event.target===this) App.UI.closeSheet('sheet-import-token')">
+    <div class="sheet">
+        <div class="sheet-handle"></div>
+        <h2 style="margin-bottom:24px;">Import SPL Token</h2>
+        <label class="subtitle">Token Mint Address</label>
+        <input type="text" id="import-mint-input" class="input-box mt-16" placeholder="Paste Solana token mint address">
+        <p id="import-status" style="font-size:12px; min-height:16px; margin: 8px 0 24px; color: var(--danger);"></p>
+        <button class="btn btn-primary" id="btn-import-token" onclick="App.Network.importToken()">
+            <i class="fa-solid fa-plus"></i> Add Token
+        </button>
+    </div>
+        </div>
+
     </div>
 
     <!-- ================= ON-CHAIN ENGINE & OOP LOGIC ================= -->
@@ -418,6 +433,9 @@
                 pubkey: null,
                 sessionKey: null,
                 balances: { sol: 0, usd: 0, spl: [] },
+
+                // Tambahkan di dalam App.State (di bawah balances: {...})
+customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                 
                 // Peningkatan RPC Failover
                 rpcs: [
@@ -659,6 +677,8 @@
                         } catch(e) { 
                             App.State.balances.usd = App.State.balances.sol * 145.00; // Hardcoded fallback 
                         }
+
+                        await this.fetchSplBalances();
                         
                         App.UI.renderDashboard();
                         this.fetchHistory();
@@ -706,6 +726,97 @@
                     try { new solanaWeb3.PublicKey(t); s.innerText="Valid Solana Address"; s.style.color="var(--success)"; b.disabled=false; }
                     catch(e) { s.innerText="Invalid Address Checksum"; s.style.color="var(--danger)"; b.disabled=true; }
                 },
+                async importToken() {
+        const mintAddr = document.getElementById('import-mint-input').value.trim();
+        const statusEl = document.getElementById('import-status');
+        const btn = document.getElementById('btn-import-token');
+        
+        if (!mintAddr) { statusEl.innerText = "Masukkan address mint."; return; }
+        
+        try { new solanaWeb3.PublicKey(mintAddr); } 
+        catch (e) { statusEl.innerText = "Alamat Solana tidak valid."; return; }
+        
+        if (App.State.customTokens.includes(mintAddr)) {
+            statusEl.innerText = "Token sudah ada di daftar Anda."; return;
+        }
+
+        btn.innerHTML = '<div class="loader"></div>';
+        try {
+            // Verifikasi metadata token via Jupiter API
+            const res = await fetch(`https://tokens.jup.ag/token/${mintAddr}`);
+            let meta = null;
+            if (res.ok) meta = await res.json();
+            
+            App.State.customTokens.push(mintAddr);
+            localStorage.setItem('sol_custom_tokens', JSON.stringify(App.State.customTokens));
+            
+            App.UI.showToast(meta ? `Token ${meta.symbol} ditambahkan!` : "Token berhasil ditambahkan", "success");
+            App.UI.closeSheet('sheet-import-token');
+            document.getElementById('import-mint-input').value = "";
+            statusEl.innerText = "";
+            
+            this.fetchDashboard(); // Refresh UI & Saldo
+        } catch (e) {
+            statusEl.innerText = "Gagal menghubungi jaringan.";
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Token';
+        }
+    },
+
+    async fetchSplBalances() {
+        const conn = this.getConnection();
+        const pub = new solanaWeb3.PublicKey(App.State.pubkey);
+        const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+        
+        try {
+            const response = await conn.getParsedTokenAccountsByOwner(pub, { programId: TOKEN_PROGRAM_ID });
+            let splList = [];
+            const accountsMap = {};
+            
+            // Map token yang dimiliki di jaringan
+            response.value.forEach(acc => {
+                const info = acc.account.data.parsed.info;
+                accountsMap[info.mint] = info.tokenAmount.uiAmount;
+            });
+
+            // Gabungkan token yang terdeteksi dengan token hasil import
+            const allMints = [...new Set([...Object.keys(accountsMap), ...App.State.customTokens])];
+
+            for (const mint of allMints) {
+                const balance = accountsMap[mint] || 0;
+                
+                // Lewati jika saldo 0 dan bukan token yang di-import manual
+                if (balance === 0 && !App.State.customTokens.includes(mint)) continue;
+
+                // Fallback Metadata (Jika token tidak ada di registry)
+                let meta = { symbol: 'SPL', name: 'Unknown Token', logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' };
+                
+                try {
+                    const metaRes = await fetch(`https://tokens.jup.ag/token/${mint}`);
+                    if (metaRes.ok) { const data = await metaRes.json(); if(data) meta = data; }
+                } catch(e) {}
+
+                // Ambil harga real-time via Jupiter V6
+                let priceUsd = 0;
+                try {
+                    const priceRes = await fetch(`https://price.jup.ag/v6/price?ids=${mint}`);
+                    if (priceRes.ok) {
+                        const priceData = await priceRes.json();
+                        if(priceData.data[mint]) priceUsd = priceData.data[mint].price;
+                    }
+                } catch(e) {}
+
+                splList.push({
+                    mint: mint, balance: balance, usdValue: balance * priceUsd, price: priceUsd,
+                    symbol: meta.symbol || 'SPL', name: meta.name || 'Unknown Token', logo: meta.logoURI
+                });
+            }
+            
+            App.State.balances.spl = splList;
+        } catch (e) {
+            console.error("Gagal mengambil saldo SPL", e);
+        }
+    },
                 setMax() { document.getElementById('tx-amount').value = App.State.balances.sol; },
                 async simulateTx() {
                     const to = document.getElementById('tx-to').value.trim();
@@ -893,18 +1004,40 @@
                     App.Network.generateQR();
                 },
                 renderDashboard() {
-                    const s = App.State.balances;
-                    document.getElementById('dash-fiat').innerText = `$${s.usd.toFixed(2)}`;
-                    document.getElementById('tx-max-bal').innerText = s.sol.toFixed(4);
-                    
-                    let html = `
-                        <div class="glass list-item" onclick="App.UI.openSheet('sheet-send')">
-                            <div class="item-icon"><i class="fa-brands fa-solana"></i></div>
-                            <div class="item-info"><div class="item-title">Solana</div><div class="item-sub text-green">Native Coin</div></div>
-                            <div class="item-value"><div class="val-title">${s.sol.toFixed(4)} SOL</div><div class="val-sub">$${s.usd.toFixed(2)}</div></div>
+        const s = App.State.balances;
+        
+        // Kalkulasi Fiat Total (SOL + All SPL Tokens)
+        const totalSplUsd = s.spl ? s.spl.reduce((sum, token) => sum + token.usdValue, 0) : 0;
+        const grandTotalUsd = s.usd + totalSplUsd;
+        
+        document.getElementById('dash-fiat').innerText = `$${grandTotalUsd.toFixed(2)}`;
+        document.getElementById('tx-max-bal').innerText = s.sol.toFixed(4);
+        
+        // 1. Render Solana Native
+        let html = `
+            <div class="glass list-item" onclick="App.UI.openSheet('sheet-send'); document.getElementById('tx-mint').value = 'native';">
+                <div class="item-icon"><i class="fa-brands fa-solana"></i></div>
+                <div class="item-info"><div class="item-title">Solana</div><div class="item-sub text-green">Native Coin</div></div>
+                <div class="item-value"><div class="val-title">${s.sol.toFixed(4)} SOL</div><div class="val-sub">$${s.usd.toFixed(2)}</div></div>
+            </div>
+        `;
+        
+        // 2. Render SPL Tokens
+        if (s.spl && s.spl.length > 0) {
+            s.spl.forEach(token => {
+                html += `
+                    <div class="glass list-item" onclick="App.UI.showToast('Transfer fitur SPL coming soon!')">
+                        <div class="item-icon" style="background:transparent; border:none; padding:0;">
+                            <img src="${token.logo}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" onerror="this.src='https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png'">
                         </div>
-                    `;
-                    document.getElementById('asset-list').innerHTML = html;
+                        <div class="item-info"><div class="item-title">${token.symbol}</div><div class="item-sub text-muted">${token.name}</div></div>
+                        <div class="item-value"><div class="val-title">${token.balance.toLocaleString('en-US', {maximumFractionDigits: 4})}</div><div class="val-sub">$${token.usdValue.toFixed(2)}</div></div>
+                    </div>
+                `;
+            });
+        }
+        
+        document.getElementById('asset-list').innerHTML = html;
                 }
             },
 
