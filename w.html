@@ -493,6 +493,26 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
             Wallet: {
                 tempData: null,
                 wordsList: ["abstract","bacon","cabin","dad","eagle","fabric","gadget","habit","ice","jacket","kangaroo","labor","machine","narrow","oasis","pact","radar","sad","tact","vacant","wagon","yacht","zebra","above","balance","cabbage","damage","early","fable","gain","hair","icon","jail","keen","label"],
+
+                // 1. Tambahkan fungsi bs58Decode ini di dalam objek App.Wallet
+        bs58Decode(str) {
+            const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+            let bytes = [0];
+            for (let i = 0; i < str.length; i++) {
+                const c = ALPHABET.indexOf(str[i]);
+                if (c < 0) throw new Error("Invalid base58");
+                let carry = c;
+                for (let j = 0; j < bytes.length; j++) {
+                    carry += bytes[j] * 58;
+                    bytes[j] = carry & 0xff;
+                    carry >>= 8;
+                }
+                while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8; }
+            }
+            // Tangani leading zeros
+            for (let i = 0; i < str.length && str[i] === '1'; i++) bytes.push(0);
+            return new Uint8Array(bytes.reverse());
+        },
                 
                 async initCreate() {
                     App.UI.showLoader();
@@ -512,12 +532,16 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                     App.UI.showView('view-create');
                 },
                 downloadKeystore() {
-                    const blob = new Blob([JSON.stringify({pubkey: this.tempData.pub, privateKey: this.tempData.priv})], {type: "application/json"});
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a'); a.href = url; a.download = `MySolWallet_${this.tempData.pub.slice(0,6)}.json`;
-                    a.click(); URL.revokeObjectURL(url);
-                    App.UI.showToast('JSON Downloaded');
-                },
+            // Hanya mengekspor array private key secara langsung (tanpa object pubkey)
+            const blob = new Blob([JSON.stringify(this.tempData.priv)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); 
+            a.href = url; 
+            a.download = `MySolWallet_${this.tempData.pub.slice(0,6)}.json`;
+            a.click(); 
+            URL.revokeObjectURL(url);
+            App.UI.showToast('JSON Downloaded');
+        },
                 startVerify() {
                     const t = this.tempData.phrase;
                     const id1 = Math.floor(Math.random()*4); const id2 = Math.floor(Math.random()*4)+4; const id3 = Math.floor(Math.random()*4)+8;
@@ -551,19 +575,43 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                     r.onload = (evt) => { document.getElementById('import-input').value = evt.target.result; };
                     r.readAsText(f);
                 },
-                processImport() {
-                    const raw = document.getElementById('import-input').value.trim();
-                    try {
-                        let kp;
-                        if(raw.startsWith('[')) kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(raw)));
-                        else {
-                            const seed = solanaWeb3.Keypair.generate().secretKey; 
-                            throw new Error("Use JSON Array [1,2,3...] format for import in this build.");
-                        }
-                        this.tempData = { priv: Array.from(kp.secretKey), pub: kp.publicKey.toString() };
-                        App.Auth.initSetup('view-import');
-                    } catch(e) { App.UI.showToast("Invalid Key format. Use JSON array.", "error"); }
+
+        // 2. Ganti fungsi processImport() yang lama dengan yang baru ini
+        async processImport() {
+            const raw = document.getElementById('import-input').value.trim();
+            try {
+                let kp;
+                
+                // Format 1: JSON Array (Standar unduhan Keystore MySolWallet)
+                if (raw.startsWith('[')) {
+                    kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(raw)));
+                } 
+                // Format 2: 12/24 Word Phrase (Mnemonic)
+                else if (raw.includes(' ')) {
+                    // Hanya menggunakan hashing murni untuk lingkungan non-bundler
+                    const seed = await App.Crypto.pbkdf2(raw, "mnemonic", 2048, 64);
+                    kp = solanaWeb3.Keypair.fromSeed(seed.slice(0, 32));
+                } 
+                // Format 3: Base58 (Standar ekspor Private Key dari Phantom)
+                else {
+                    const secretBytes = this.bs58Decode(raw);
+                    if (secretBytes.length === 64) {
+                        kp = solanaWeb3.Keypair.fromSecretKey(secretBytes);
+                    } else if (secretBytes.length === 32) {
+                        kp = solanaWeb3.Keypair.fromSeed(secretBytes);
+                    } else {
+                        throw new Error("Panjang karakter Base58 tidak valid");
+                    }
                 }
+                
+                this.tempData = { priv: Array.from(kp.secretKey), pub: kp.publicKey.toString() };
+                App.Auth.initSetup('view-import');
+                
+            } catch(e) { 
+                console.error("Import Error:", e);
+                App.UI.showToast("Format tidak valid. Gunakan JSON, Phrase, atau Base58.", "error"); 
+            }
+        }
             },
 
             // Authentication & Security
