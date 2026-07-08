@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MySolWallet | Premium On-Chain Engine</title>
+    
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/easyqrcodejs@4.6.1/dist/easy.qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* =========================================================
+           DESIGN SYSTEM & THEME VARIABLES (Slate Blue Accent)
+           ========================================================= */
+        :root {
+            --bg-color: #05070a; 
+            --glass-bg: rgba(18, 22, 31, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --primary: #7385a5; /* Minimalist Slate Blue */
+            --primary-hover: #5a6b8a;
+            --text-main: #FFFFFF;
+            --text-muted: #8E9BAE;
+            --danger: #FF4949;
+            --success: #14F195;
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --font: 'Inter', sans-serif;
+        }
+
+        :root[data-theme="light"] {
+            --bg-color: #f4f6f8;
+            --glass-bg: rgba(255, 255, 255, 0.75);
+            --glass-border: rgba(0, 0, 0, 0.1);
+            --text-main: #12161f;
+            --text-muted: #64748b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font); -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg-color); color: var(--text-main); display: flex; justify-content: center; height: 100vh; height: 100dvh; overflow: hidden; transition: background 0.4s ease; }
+
+        /* App Shell */
+        .app { width: 100%; max-width: 480px; height: 100%; position: relative; display: flex; flex-direction: column; overflow: hidden; background: radial-gradient(circle at 50% -20%, rgba(115, 133, 165, 0.15) 0%, transparent 70%); }
+        .view { flex: 1; display: none; flex-direction: column; overflow-y: auto; padding-bottom: 90px; opacity: 0; transform: translateY(15px); transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
+        .view.active { display: flex; opacity: 1; transform: translateY(0); }
+
+        /* Glassmorphism Utilities */
+        .glass { background: var(--glass-bg); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--glass-border); border-radius: var(--radius-md); box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+        
+        /* Typography & Layout */
+        .p-24 { padding: 24px; } .mt-16 { margin-top: 16px; } .mt-24 { margin-top: 24px; } .text-center { text-align: center; }
+        h1, h2 { font-weight: 600; letter-spacing: -0.5px; } .subtitle { color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; } .flex-center { display: flex; justify-content: center; align-items: center; }
+        
+        /* Interactive Elements */
+        .btn { width: 100%; padding: 16px; border-radius: 12px; font-size: 15px; font-weight: 600; border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; transition: all 0.2s ease; }
+        .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 15px rgba(115, 133, 165, 0.3); }
+        .btn-primary:active { transform: scale(0.98); background: var(--primary-hover); }
+        .btn-secondary { background: transparent; color: var(--text-main); border: 1px solid var(--glass-border); }
+        .btn-secondary:active { background: rgba(255,255,255,0.05); }
+        .btn-icon { background: transparent; border: none; color: var(--text-main); font-size: 20px; cursor: pointer; transition: color 0.2s; }
+        .btn-icon:active { color: var(--primary); }
+        
+        .input-box { width: 100%; padding: 16px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 12px; color: var(--text-main); font-size: 15px; outline: none; transition: border-color 0.3s; }
+        .input-box:focus { border-color: var(--primary); background: rgba(0,0,0,0.4); }
+        
+        /* Seed Phrase Grid */
+        .seed-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .seed-word { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; display: flex; border: 1px solid var(--glass-border); }
+        .seed-word span { color: var(--text-muted); font-size: 12px; width: 24px; }
+        
+        /* PIN Keypad */
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 24px; margin-top: auto; justify-content: center; }
+        .key { width: 72px; height: 72px; border-radius: 50%; background: transparent; border: 1px solid var(--glass-border); color: var(--text-main); font-size: 24px; font-weight: 500; cursor: pointer; display: flex; justify-content: center; align-items: center; margin: 0 auto; transition: all 0.2s; }
+        .key:active { background: var(--primary); color: #fff; transform: scale(0.92); border-color: var(--primary); }
+        .pin-dots { display: flex; justify-content: center; gap: 12px; margin: 24px 0; }
+        .dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--glass-border); transition: all 0.3s; }
+        .dot.filled { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 10px rgba(115, 133, 165, 0.5); }
+
+        /* Dashboard UI */
+        .navbar { padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; background: var(--bg-color); }
+        .logo-area { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+        .wallet-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--glass-border); transition: background 0.2s; }
+        .wallet-badge:active { background: rgba(255,255,255,0.05); }
+        
+        .action-circles { display: flex; justify-content: center; gap: 32px; padding: 24px 0; }
+        .circle-btn-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; }
+        .circle-btn { width: 56px; height: 56px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; justify-content: center; align-items: center; font-size: 20px; border: none; box-shadow: 0 4px 15px rgba(115, 133, 165, 0.4); transition: transform 0.2s; }
+        .circle-btn-wrap:active .circle-btn { transform: scale(0.92); }
+        .circle-btn-wrap span { font-size: 13px; font-weight: 500; color: var(--text-main); }
+
+        .list-item { display: flex; align-items: center; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--glass-border); cursor: pointer; transition: background 0.2s; }
+        .list-item:active { background: rgba(255,255,255,0.02); }
+        .item-icon { width: 44px; height: 44px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 20px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); overflow: hidden; }
+        .item-info { flex: 1; } .item-title { font-size: 16px; font-weight: 600; } .item-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+        .item-value { text-align: right; } .val-title { font-size: 16px; font-weight: 600; } .val-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+        .text-green { color: var(--success); } .text-red { color: var(--danger); }
+
+        /* Bottom Nav */
+        .bottom-nav { position: absolute; bottom: 0; width: 100%; display: flex; justify-content: space-around; padding: 16px 0 24px; background: var(--glass-bg); backdrop-filter: blur(20px); border-top: 1px solid var(--glass-border); z-index: 50; }
+        .nav-item { background: transparent; border: none; color: var(--text-muted); font-size: 11px; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: color 0.3s; }
+        .nav-item i { font-size: 20px; } .nav-item.active { color: var(--primary); }
+
+        /* Custom Modals & Bottom Sheets */
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 100; opacity: 0; visibility: hidden; transition: opacity 0.3s; display: flex; flex-direction: column; justify-content: flex-end; }
+        .overlay.show { opacity: 1; visibility: visible; }
+        .sheet { background: var(--bg-color); border-radius: 24px 24px 0 0; border-top: 1px solid var(--glass-border); padding: 24px; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); max-height: 90%; overflow-y: auto; display: flex; flex-direction: column; }
+        .overlay.show .sheet { transform: translateY(0); }
+        .sheet-handle { width: 40px; height: 4px; background: var(--glass-border); border-radius: 2px; margin: 0 auto 24px; }
+        .sheet.full { height: 100%; max-height: 100%; border-radius: 0; border: none; }
+
+        /* Global Toast & Loader */
+        #toast { position: fixed; top: 20px; left: 50%; transform: translate(-50%, -20px); z-index: 9999; padding: 14px 24px; border-radius: 100px; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 10px; opacity: 0; visibility: hidden; transition: all 0.4s; }
+        #toast.show { transform: translate(-50%, 0); opacity: 1; visibility: visible; }
+        .loader { border: 2px solid rgba(255,255,255,0.1); border-top: 2px solid #fff; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="toast" class="glass"></div>
+
+    <div id="sys-dialog" class="overlay">
+        <div class="sheet" style="border-radius:24px; margin:24px; padding:24px; align-self:center; transform:scale(0.95);">
+            <div id="dialog-icon" class="text-center" style="font-size:40px; margin-bottom:16px;"></div>
+            <h2 id="dialog-title" class="text-center"></h2>
+            <p id="dialog-msg" class="subtitle text-center mt-16" style="margin-bottom:24px;"></p>
+            <div id="dialog-actions" class="flex-between" style="gap:12px;"></div>
+        </div>
+    </div>
+
+    <div class="app">
+        
+        <div id="view-welcome" class="view active" style="justify-content: center; padding: 32px;">
+            <div class="text-center">
+                <i class="fa-brands fa-solana" style="font-size: 80px; color: var(--primary); margin-bottom: 24px; filter: drop-shadow(0 0 20px rgba(115, 133, 165, 0.4));"></i>
+                <h1 style="font-size: 28px;">MySolWallet</h1>
+                <p class="subtitle mt-16" id="txt-welcome">Premium On-Chain Engine.<br>Secure, Fast, & Non-Custodial.</p>
+            </div>
+            <div style="margin-top: 60px;">
+                <button class="btn btn-primary" onclick="App.Wallet.initCreate()"><i class="fa-solid fa-plus"></i> <span id="txt-create">Create Wallet</span></button>
+                <button class="btn btn-secondary mt-16" onclick="App.UI.showView('view-import')"><i class="fa-solid fa-download"></i> <span id="txt-import">Import Wallet</span></button>
+            </div>
+        </div>
+
+        <div id="view-create" class="view p-24">
+            <div class="flex-between">
+                <button class="btn-icon" onclick="App.UI.showView('view-welcome')"><i class="fa-solid fa-arrow-left"></i></button>
+                <h2>Secret Phrase</h2>
+                <div style="width:20px;"></div>
+            </div>
+            <div class="glass p-24 mt-24" style="background: rgba(255, 165, 0, 0.05); border-color: rgba(255, 165, 0, 0.2);">
+                <p style="color:#FFA500; font-size:13px;"><i class="fa-solid fa-triangle-exclamation"></i> Write these 12 words down offline. Never share them.</p>
+            </div>
+            <div class="seed-grid mt-24" id="phrase-grid"></div>
+            
+            <div class="mt-24">
+                <p class="subtitle" style="font-size: 12px; margin-bottom: 8px;">Private Key (Ed25519)</p>
+                <div class="glass flex-between" style="padding: 12px 16px;">
+                    <input type="password" id="priv-display" readonly style="background:transparent; border:none; color:var(--text-main); flex:1; outline:none; font-family:monospace; font-size:12px;">
+                    <button class="btn-icon" onclick="App.UI.togglePassword('priv-display')" style="margin:0 12px; font-size:16px;"><i class="fa-regular fa-eye"></i></button>
+                    <button class="btn-icon" onclick="App.UI.copyText(document.getElementById('priv-display').value)" style="font-size:16px; color:var(--primary);"><i class="fa-regular fa-copy"></i></button>
+                </div>
+            </div>
+
+            <div style="margin-top: auto; padding-top: 24px;">
+                <button class="btn btn-secondary" onclick="App.Wallet.downloadKeystore()" style="margin-bottom: 16px;"><i class="fa-solid fa-file-arrow-down"></i> Download JSON</button>
+                <button class="btn btn-primary" onclick="App.Wallet.startVerify()">Next Step <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+        </div>
+
+        <div id="view-verify" class="view p-24">
+            <div class="flex-between"><button class="btn-icon" onclick="App.UI.showView('view-create')"><i class="fa-solid fa-arrow-left"></i></button><h2>Verify Phrase</h2><div style="width:20px;"></div></div>
+            <p class="subtitle mt-24">Confirm you saved the phrase by selecting the correct words.</p>
+            <div id="verify-inputs" class="mt-24"></div>
+            <div style="margin-top: auto;"><button class="btn btn-primary" onclick="App.Wallet.checkVerify()">Verify & Next</button></div>
+        </div>
+
+        <div id="view-import" class="view p-24">
+            <div class="flex-between"><button class="btn-icon" onclick="App.UI.showView('view-welcome')"><i class="fa-solid fa-arrow-left"></i></button><h2>Import Wallet</h2><div style="width:20px;"></div></div>
+            <p class="subtitle mt-24">Enter your 12-word mnemonic phrase or base58 private key.</p>
+            <textarea id="import-input" class="input-box mt-16" rows="4" placeholder="e.g. abstract bacon cabin..." style="resize:none; font-family:monospace;"></textarea>
+            
+            <div class="flex-center mt-24">
+                <div style="height:1px; background:var(--glass-border); flex:1;"></div>
+                <span class="subtitle" style="padding:0 16px;">OR</span>
+                <div style="height:1px; background:var(--glass-border); flex:1;"></div>
+            </div>
+            
+            <input type="file" id="file-json" style="display:none;" accept=".json" onchange="App.Wallet.handleJsonUpload(event)">
+            <button class="btn btn-secondary mt-24" onclick="document.getElementById('file-json').click()"><i class="fa-solid fa-upload"></i> Upload Keystore JSON</button>
+            
+            <div style="margin-top: auto;"><button class="btn btn-primary" onclick="App.Wallet.processImport()">Unlock <i class="fa-solid fa-unlock"></i></button></div>
+        </div>
+
+        <div id="view-pin" class="view">
+            <div class="flex-between p-24"><button class="btn-icon" id="pin-back"><i class="fa-solid fa-arrow-left"></i></button><h2 id="pin-title">Create PIN</h2><div style="width:20px;"></div></div>
+            <div class="text-center mt-24">
+                <i class="fa-solid fa-shield-halved" style="font-size: 40px; color: var(--primary);"></i>
+                <p class="subtitle mt-16" id="pin-sub">Set an 8-digit PIN to secure your device.</p>
+                <div class="pin-dots" id="main-pin-dots">
+                    <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                    <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+            </div>
+            <div class="keypad">
+                <button class="key" onclick="App.Auth.type('1')">1</button><button class="key" onclick="App.Auth.type('2')">2</button><button class="key" onclick="App.Auth.type('3')">3</button>
+                <button class="key" onclick="App.Auth.type('4')">4</button><button class="key" onclick="App.Auth.type('5')">5</button><button class="key" onclick="App.Auth.type('6')">6</button>
+                <button class="key" onclick="App.Auth.type('7')">7</button><button class="key" onclick="App.Auth.type('8')">8</button><button class="key" onclick="App.Auth.type('9')">9</button>
+                <div></div><button class="key" onclick="App.Auth.type('0')">0</button><button class="key" onclick="App.Auth.type('del')" style="background:transparent; border:none;"><i class="fa-solid fa-delete-left"></i></button>
+            </div>
+            <div class="p-24" id="pin-action" style="display:none;"><button class="btn btn-primary" onclick="App.Auth.finalizeSetup()">Login & Enter <i class="fa-solid fa-arrow-right"></i></button></div>
+        </div>
+
+        <div id="view-dashboard" class="view" style="padding-bottom: 0;">
+            
+            <div class="navbar">
+                <div class="logo-area"><i class="fa-brands fa-solana" style="color:var(--primary);"></i> MySolWallet</div>
+                <div style="display:flex; gap:16px;">
+                    <button class="btn-icon" onclick="App.UI.toggleTheme()"><i class="fa-solid fa-moon" id="icon-theme"></i></button>
+                    <button class="btn-icon" onclick="App.UI.toggleLang()"><span id="txt-lang" style="font-size:14px; font-weight:600;">EN</span></button>
+                    <button class="btn-icon" onclick="App.Auth.lock()"><i class="fa-solid fa-lock text-red" style="font-size: 18px;"></i></button>
+                </div>
+            </div>
+
+            <div id="tab-home" class="view active" style="padding-bottom:100px;">
+                <div class="text-center mt-16">
+                    <div class="wallet-badge glass" onclick="App.UI.openSheet('sheet-wallet-select')">
+                        <span id="dash-wallet-name">Main Wallet</span> 
+                        <i class="fa-solid fa-chevron-down" style="font-size:10px; color:var(--text-muted);"></i>
+                    </div>
+                    <div class="mt-16" style="cursor:pointer;" onclick="App.UI.copyText(App.State.pubkey)">
+                        <span id="dash-address" style="font-size:13px; color:var(--text-muted); font-family:monospace;"></span> <i class="fa-regular fa-copy" style="font-size:12px; color:var(--text-muted);"></i>
+                    </div>
+                    <h1 style="font-size:40px; margin-top:16px; letter-spacing:-1px;" id="dash-fiat">$0.00</h1>
+                    <p class="subtitle" id="txt-est">Est. Total Asset</p>
+                </div>
+
+                <div class="action-circles">
+                    <div class="circle-btn-wrap" onclick="App.UI.openSheet('sheet-receive')">
+                        <button class="circle-btn"><i class="fa-solid fa-arrow-down"></i></button><span id="txt-btn-rx">Receive</span>
+                    </div>
+                    <div class="circle-btn-wrap" onclick="App.UI.openSheet('sheet-send')">
+                        <button class="circle-btn"><i class="fa-solid fa-arrow-up"></i></button><span id="txt-btn-tx">Send</span>
+                    </div>
+                </div>
+
+                <div class="p-24" style="padding-top:0;">
+                    <div class="flex-between" style="margin-bottom:16px;">
+                        <h3 id="txt-assets">Assets</h3>
+                        <button class="btn-icon" style="font-size:14px;" onclick="App.UI.openSheet('sheet-import-token')"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div id="asset-list">
+                        </div>
+                </div>
+            </div>
+
+            <div id="tab-history" class="view" style="padding-bottom:100px;">
+                <div class="p-24"><h2 id="txt-history">Transactions</h2></div>
+                <div id="tx-list" class="p-24" style="padding-top:0;"></div>
+            </div>
+
+            <div id="tab-settings" class="view" style="padding-bottom:100px;">
+                <div class="p-24"><h2 id="txt-settings">Settings</h2></div>
+                <div class="p-24" style="padding-top:0;">
+                    <div class="glass" style="overflow:hidden;">
+                        <div class="list-item" onclick="App.UI.openSheet('sheet-wallet-select')">
+                            <div class="item-icon"><i class="fa-solid fa-wallet"></i></div>
+                            <div class="item-info"><div class="item-title" id="txt-set-wallet">Manage Wallets</div></div>
+                            <i class="fa-solid fa-chevron-right text-muted"></i>
+                        </div>
+                        <div class="list-item" onclick="App.UI.openSheet('sheet-export')">
+                            <div class="item-icon"><i class="fa-solid fa-key"></i></div>
+                            <div class="item-info"><div class="item-title" id="txt-set-export">Export Private Key</div></div>
+                            <i class="fa-solid fa-chevron-right text-muted"></i>
+                        </div>
+                        <div class="list-item" onclick="App.Auth.nuke()">
+                            <div class="item-icon" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></div>
+                            <div class="item-info"><div class="item-title text-red" id="txt-set-reset">Reset Wallet Data</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-nav">
+                <button class="nav-item active" onclick="App.UI.switchTab('tab-home', this)"><i class="fa-solid fa-wallet"></i><span id="nav-home">Home</span></button>
+                <button class="nav-item" onclick="App.UI.switchTab('tab-history', this)"><i class="fa-solid fa-clock-rotate-left"></i><span id="nav-history">History</span></button>
+                <button class="nav-item" onclick="App.UI.switchTab('tab-settings', this)"><i class="fa-solid fa-gear"></i><span id="nav-settings">Settings</span></button>
+            </div>
+        </div>
+
+        <div id="sheet-wallet-select" class="overlay" onclick="if(event.target===this) App.UI.closeSheet('sheet-wallet-select')">
+            <div class="sheet">
+                <div class="sheet-handle"></div>
+                <h2 style="margin-bottom:24px;">Wallets</h2>
+                <div id="wallet-list-ui" class="glass" style="overflow:hidden; margin-bottom:24px;"></div>
+                <button class="btn btn-secondary" onclick="App.Auth.lock(); App.UI.showView('view-import');"><i class="fa-solid fa-plus"></i> Import New Wallet</button>
+            </div>
+        </div>
+
+        <div id="sheet-receive" class="overlay" onclick="if(event.target===this) App.UI.closeSheet('sheet-receive')">
+            <div class="sheet">
+                <div class="sheet-handle"></div>
+                <h2 class="text-center" style="margin-bottom:24px;">Receive</h2>
+                <div class="text-center">
+                    <div id="qr-container" style="background:#fff; padding:16px; border-radius:16px; display:inline-block; margin-bottom:24px;"></div>
+                </div>
+                <input type="number" id="rx-amount" class="input-box" placeholder="Request Amount (Optional)" oninput="App.Network.generateQR()" style="margin-bottom:16px;">
+                <div class="glass flex-between" style="padding: 12px 16px; margin-bottom:24px;">
+                    <input type="text" id="rx-address" readonly style="background:transparent; border:none; color:var(--text-main); flex:1; outline:none; font-family:monospace; font-size:12px;">
+                    <button class="btn-icon" onclick="App.UI.copyText(App.State.pubkey)" style="color:var(--primary);"><i class="fa-regular fa-copy"></i></button>
+                </div>
+                <button class="btn btn-primary" onclick="App.Network.downloadQR()"><i class="fa-solid fa-download"></i> Download QR</button>
+            </div>
+        </div>
+
+        <div id="sheet-send" class="overlay" onclick="if(event.target===this) { App.UI.closeSheet('sheet-send'); App.Network.stopScanner(); }">
+            <div class="sheet full">
+                <div class="flex-between p-24" style="padding-top:0;">
+                    <button class="btn-icon" onclick="App.UI.closeSheet('sheet-send'); App.Network.stopScanner();"><i class="fa-solid fa-xmark"></i></button>
+                    <h2>Send Asset</h2><div style="width:20px;"></div>
+                </div>
+                <div class="p-24" style="padding-top:0; flex:1; overflow-y:auto;">
+                    <div id="qr-reader" style="width: 100%; border-radius:12px; overflow:hidden; display:none; margin-bottom:16px;"></div>
+                    
+                    <label class="subtitle">Recipient Address</label>
+                    <div class="flex-between mt-16" style="gap:12px; margin-bottom:8px;">
+                        <input type="text" id="tx-to" class="input-box" placeholder="Paste Solana address" oninput="App.Network.validateAddress()">
+                        <button class="btn-icon glass" style="width:52px; height:52px; border-radius:12px;" onclick="App.Network.startScanner()"><i class="fa-solid fa-qrcode"></i></button>
+                        <input type="file" id="qr-upload" accept="image/*" style="display:none;" onchange="App.Network.scanFile(event)">
+                        <button class="btn-icon glass" style="width:52px; height:52px; border-radius:12px;" onclick="document.getElementById('qr-upload').click()"><i class="fa-solid fa-image"></i></button>
+                    </div>
+                    <p id="tx-status" style="font-size:12px; color:var(--danger); min-height:16px; margin-bottom:24px;"></p>
+                    
+                    <div class="flex-between">
+                        <label class="subtitle">Amount</label>
+                        <span style="font-size:12px; color:var(--primary); font-weight:600; cursor:pointer;" onclick="App.Network.setMax()">MAX: <span id="tx-max-bal">0.00</span> <span id="tx-symbol">SOL</span></span>
+                    </div>
+                    <input type="number" id="tx-amount" class="input-box mt-16" placeholder="0.00" style="margin-bottom:24px;">
+                    
+                    <input type="hidden" id="tx-mint" value="native">
+                    
+                    <button class="btn btn-primary" id="btn-review" onclick="App.Network.simulateTx()" disabled>Review Send <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="sheet-tx-pin" class="overlay">
+            <div class="sheet full" style="justify-content: center;">
+                <div class="flex-between p-24" style="position:absolute; top:0; left:0; width:100%;"><button class="btn-icon" onclick="App.UI.closeSheet('sheet-tx-pin')"><i class="fa-solid fa-arrow-left"></i></button><h2>Sign TX</h2><div style="width:20px;"></div></div>
+                <div class="text-center">
+                    <p class="subtitle">Enter your 8-digit PIN to sign on-chain.</p>
+                    <div class="pin-dots" id="sig-pin-dots">
+                        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                        <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                    </div>
+                </div>
+                <div class="keypad">
+                    <button class="key" onclick="App.Auth.typeSig('1')">1</button><button class="key" onclick="App.Auth.typeSig('2')">2</button><button class="key" onclick="App.Auth.typeSig('3')">3</button>
+                    <button class="key" onclick="App.Auth.typeSig('4')">4</button><button class="key" onclick="App.Auth.typeSig('5')">5</button><button class="key" onclick="App.Auth.typeSig('6')">6</button>
+                    <button class="key" onclick="App.Auth.typeSig('7')">7</button><button class="key" onclick="App.Auth.typeSig('8')">8</button><button class="key" onclick="App.Auth.typeSig('9')">9</button>
+                    <div></div><button class="key" onclick="App.Auth.typeSig('0')">0</button><button class="key" onclick="App.Auth.typeSig('del')" style="background:transparent; border:none;"><i class="fa-solid fa-delete-left"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="sheet-export" class="overlay" onclick="if(event.target===this) App.UI.closeSheet('sheet-export')">
+            <div class="sheet">
+                <div class="sheet-handle"></div>
+                <h2 style="margin-bottom:24px;">Export Private Key</h2>
+                <div class="glass p-24" style="background: rgba(255, 73, 73, 0.1); border-color: rgba(255, 73, 73, 0.3); margin-bottom:24px;">
+                    <p style="color:var(--danger); font-size:13px; font-weight:600;"><i class="fa-solid fa-triangle-exclamation"></i> WARNING: Never share this key.</p>
+                </div>
+                <textarea id="export-key-val" class="input-box" rows="4" readonly style="font-family:monospace; resize:none; margin-bottom:24px;"></textarea>
+                <button class="btn btn-primary" onclick="App.UI.copyText(document.getElementById('export-key-val').value)"><i class="fa-solid fa-copy"></i> Copy to Clipboard</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const App = {
+            State: {
+                lang: localStorage.getItem('sol_lang') || 'EN',
+                currency: 'USD',
+                theme: localStorage.getItem('sol_theme') || 'dark',
+                wallets: JSON.parse(localStorage.getItem('sol_wallets') || '[]'),
+                activeId: localStorage.getItem('sol_active') || null,
+                pubkey: null,
+                sessionKey: null,
+                balances: { sol: 0, usd: 0, spl: [] },
+                conn: new solanaWeb3.Connection("https://api.mainnet-beta.solana.com", 'confirmed'),
+                qrScanner: null,
+                tempTx: null
+            },
+            
+            // Core Cryptography (Web Crypto API)
+            Crypto: {
+                async getEntropy() {
+                    const r = new Uint8Array(16);
+                    window.crypto.getRandomValues(r);
+                    return Array.from(r);
+                },
+                async pbkdf2(password, salt, iter, len) {
+                    const enc = new TextEncoder();
+                    const keyMaterial = await window.crypto.subtle.importKey("raw", typeof password === 'string' ? enc.encode(password) : new Uint8Array(password), {name: "PBKDF2"}, false, ["deriveBits"]);
+                    const bits = await window.crypto.subtle.deriveBits({name: "PBKDF2", salt: enc.encode(salt), iterations: iter, hash: "SHA-512"}, keyMaterial, len * 8);
+                    return new Uint8Array(bits);
+                },
+                async aesKey(pin) {
+                    const enc = new TextEncoder();
+                    const mat = await window.crypto.subtle.importKey("raw", enc.encode(pin), {name: "PBKDF2"}, false, ["deriveKey"]);
+                    return window.crypto.subtle.deriveKey({name: "PBKDF2", salt: enc.encode("MySol_Salt_v5"), iterations: 100000, hash: "SHA-256"}, mat, {name: "AES-GCM", length: 256}, false, ["encrypt", "decrypt"]);
+                },
+                async encrypt(data, pin) {
+                    const key = await this.aesKey(pin);
+                    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+                    const enc = new TextEncoder();
+                    const cipher = await window.crypto.subtle.encrypt({name: "AES-GCM", iv}, key, enc.encode(data));
+                    const payload = new Uint8Array(iv.length + cipher.byteLength);
+                    payload.set(iv, 0); payload.set(new Uint8Array(cipher), iv.length);
+                    return btoa(String.fromCharCode(...payload));
+                },
+                async decrypt(base64, pin) {
+                    try {
+                        const key = await this.aesKey(pin);
+                        const str = atob(base64);
+                        const payload = new Uint8Array(str.length);
+                        for(let i=0; i<str.length; i++) payload[i] = str.charCodeAt(i);
+                        const iv = payload.slice(0, 12); const data = payload.slice(12);
+                        const plain = await window.crypto.subtle.decrypt({name: "AES-GCM", iv}, key, data);
+                        return new TextDecoder().decode(plain);
+                    } catch(e) { return null; }
+                }
+            },
+
+            // Wallet Generation & Import
+            Wallet: {
+                tempData: null,
+                wordsList: ["abstract","bacon","cabin","dad","eagle","fabric","gadget","habit","ice","jacket","kangaroo","labor","machine","narrow","oasis","pact","radar","sad","tact","vacant","wagon","yacht","zebra","above","balance","cabbage","damage","early","fable","gain","hair","icon","jail","keen","label"],
+                
+                async initCreate() {
+                    App.UI.showLoader();
+                    // Generate pseudo-BIP39 (For standard 12-word mapping in standalone HTML)
+                    const entropy = await App.Crypto.getEntropy();
+                    let phrase = [];
+                    for(let i=0; i<12; i++) phrase.push(this.wordsList[entropy[i] % this.wordsList.length]);
+                    
+                    // Generate Ed25519 standard seed & keypair
+                    const seed = await App.Crypto.pbkdf2(phrase.join(' '), "mnemonic", 2048, 64);
+                    const kp = solanaWeb3.Keypair.fromSeed(seed.slice(0, 32));
+                    
+                    this.tempData = { phrase, priv: Array.from(kp.secretKey), pub: kp.publicKey.toString() };
+                    
+                    document.getElementById('phrase-grid').innerHTML = phrase.map((w,i) => `<div class="seed-word"><span>${i+1}</span> ${w}</div>`).join('');
+                    document.getElementById('priv-display').value = JSON.stringify(this.tempData.priv);
+                    
+                    App.UI.hideLoader();
+                    App.UI.showView('view-create');
+                },
+                downloadKeystore() {
+                    const blob = new Blob([JSON.stringify({pubkey: this.tempData.pub, privateKey: this.tempData.priv})], {type: "application/json"});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = `MySolWallet_${this.tempData.pub.slice(0,6)}.json`;
+                    a.click(); URL.revokeObjectURL(url);
+                    App.UI.showToast('JSON Downloaded');
+                },
+                startVerify() {
+                    const t = this.tempData.phrase;
+                    const id1 = Math.floor(Math.random()*4); const id2 = Math.floor(Math.random()*4)+4; const id3 = Math.floor(Math.random()*4)+8;
+                    
+                    let html = '';
+                    [id1, id2, id3].forEach(i => {
+                        html += `
+                        <div style="margin-bottom:16px;">
+                            <label class="subtitle">Word #${i+1}</label>
+                            <input type="text" class="input-box mt-16 verify-in" data-ans="${t[i]}" placeholder="Enter word" style="margin-top:8px;">
+                        </div>`;
+                    });
+                    document.getElementById('verify-inputs').innerHTML = html;
+                    App.UI.showView('view-verify');
+                },
+                checkVerify() {
+                    let ok = true;
+                    document.querySelectorAll('.verify-in').forEach(el => {
+                        if(el.value.trim().toLowerCase() !== el.getAttribute('data-ans')) { ok = false; el.style.borderColor = 'var(--danger)'; }
+                        else el.style.borderColor = 'var(--success)';
+                    });
+                    if(ok) {
+                        App.UI.showToast("Verification Success");
+                        App.Auth.initSetup('view-verify');
+                    } else { App.UI.showToast("Words do not match", "error"); }
+                },
+                handleJsonUpload(e) {
+                    const f = e.target.files[0];
+                    if(!f) return;
+                    const r = new FileReader();
+                    r.onload = (evt) => { document.getElementById('import-input').value = evt.target.result; };
+                    r.readAsText(f);
+                },
+                processImport() {
+                    const raw = document.getElementById('import-input').value.trim();
+                    try {
+                        let kp;
+                        if(raw.startsWith('[')) kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(raw)));
+                        else {
+                            // Assume space separated mnemonic for this demo
+                            const seed = solanaWeb3.Keypair.generate().secretKey; // Placeholder logic fallback
+                            throw new Error("Use JSON Array [1,2,3...] format for import in this build.");
+                        }
+                        this.tempData = { priv: Array.from(kp.secretKey), pub: kp.publicKey.toString() };
+                        App.Auth.initSetup('view-import');
+                    } catch(e) { App.UI.showToast("Invalid Key format. Use JSON array.", "error"); }
+                }
+            },
+
+            // Authentication & Security
+            Auth: {
+                stage: '', pin1: '', pin2: '', origin: '',
+                
+                initSetup(org) { this.origin = org; this.stage = 'create'; this.pin1 = ''; this.pin2 = ''; App.UI.updateDots('main-pin-dots', 0); document.getElementById('pin-title').innerText = "Create PIN"; document.getElementById('pin-action').style.display = 'none'; App.UI.showView('view-pin'); },
+                initLogin() { this.stage = 'login'; this.pin1 = ''; App.UI.updateDots('main-pin-dots', 0); document.getElementById('pin-title').innerText = "Unlock Wallet"; document.getElementById('pin-sub').innerText = "Enter your 8-digit PIN"; document.getElementById('pin-back').style.display = 'none'; document.getElementById('pin-action').style.display = 'none'; App.UI.showView('view-pin'); },
+                
+                type(val) {
+                    let t = this.stage === 'confirm' ? this.pin2 : this.pin1;
+                    if(val === 'del') t = t.slice(0, -1);
+                    else if(t.length < 8) t += val;
+                    
+                    if(this.stage === 'confirm') this.pin2 = t; else this.pin1 = t;
+                    App.UI.updateDots('main-pin-dots', t.length);
+                    
+                    if(t.length === 8) setTimeout(() => this.process(), 100);
+                },
+                process() {
+                    if(this.stage === 'create') {
+                        this.stage = 'confirm'; App.UI.updateDots('main-pin-dots', 0);
+                        document.getElementById('pin-title').innerText = "Confirm PIN";
+                    } else if(this.stage === 'confirm') {
+                        if(this.pin1 === this.pin2) { document.getElementById('pin-title').innerText = "Matched!"; document.getElementById('pin-action').style.display = 'block'; }
+                        else { App.UI.showToast("Mismatch", "error"); this.initSetup(this.origin); }
+                    } else if(this.stage === 'login') {
+                        this.unlock(this.pin1);
+                    }
+                },
+                async finalizeSetup() {
+                    App.UI.showLoader();
+                    try {
+                        const enc = await App.Crypto.encrypt(JSON.stringify(App.Wallet.tempData.priv), this.pin1);
+                        const id = Date.now().toString();
+                        const w = { id, name: `Wallet ${App.State.wallets.length + 1}`, pub: App.Wallet.tempData.pub, enc };
+                        
+                        App.State.wallets.push(w);
+                        App.State.activeId = id;
+                        localStorage.setItem('sol_wallets', JSON.stringify(App.State.wallets));
+                        localStorage.setItem('sol_active', id);
+                        
+                        App.Wallet.tempData = null;
+                        this.unlock(this.pin1);
+                    } catch(e) { App.UI.showToast("Setup Failed", "error"); App.UI.hideLoader(); }
+                },
+                async unlock(pin) {
+                    App.UI.showLoader();
+                    try {
+                        const activeW = App.State.wallets.find(x => x.id === App.State.activeId) || App.State.wallets[0];
+                        const privStr = await App.Crypto.decrypt(activeW.enc, pin);
+                        if(!privStr) throw new Error("Invalid PIN");
+                        
+                        App.State.sessionKey = await App.Crypto.aesKey(pin);
+                        App.State.pubkey = activeW.pub;
+                        App.UI.initDashboard();
+                    } catch(e) {
+                        App.UI.showToast("Incorrect PIN", "error");
+                        this.initLogin(); App.UI.hideLoader();
+                    }
+                },
+                lock() { App.State.sessionKey = null; window.location.reload(); },
+                nuke() {
+                    App.UI.confirm("DANGER ZONE", "This will wipe all wallets and data from this device. Proceed?", () => {
+                        localStorage.clear(); window.location.reload();
+                    });
+                },
+                
+                // Transaction PIN
+                txPin: '',
+                typeSig(val) {
+                    if(val === 'del') this.txPin = this.txPin.slice(0, -1);
+                    else if(this.txPin.length < 8) this.txPin += val;
+                    App.UI.updateDots('sig-pin-dots', this.txPin.length);
+                    if(this.txPin.length === 8) setTimeout(() => this.processSig(), 100);
+                },
+                async processSig() {
+                    App.UI.showLoader();
+                    const pin = this.txPin; this.txPin = ''; App.UI.updateDots('sig-pin-dots', 0);
+                    try {
+                        const activeW = App.State.wallets.find(x => x.id === App.State.activeId);
+                        const privStr = await App.Crypto.decrypt(activeW.enc, pin);
+                        if(!privStr) throw new Error("Invalid PIN");
+                        
+                        App.UI.closeSheet('sheet-tx-pin');
+                        App.Network.executeTx(privStr);
+                    } catch(e) { App.UI.showToast("Signature Failed", "error"); App.UI.hideLoader(); }
+                }
+            },
+
+            // Mainnet Network & Transactions
+            Network: {
+                async fetchDashboard() {
+                    try {
+                        const pub = new solanaWeb3.PublicKey(App.State.pubkey);
+                        const bal = await App.State.conn.getBalance(pub);
+                        App.State.balances.sol = bal / solanaWeb3.LAMPORTS_PER_SOL;
+                        
+                        // Jupiter API for real price (On-chain requirement)
+                        try {
+                            const res = await (await fetch('https://price.jup.ag/v4/price?ids=SOL')).json();
+                            const p = res.data.SOL.price;
+                            App.State.balances.usd = App.State.balances.sol * p;
+                        } catch(e) { App.State.balances.usd = App.State.balances.sol * 145.00; /* Fallback if API block */ }
+                        
+                        App.UI.renderDashboard();
+                        this.fetchHistory();
+                    } catch(e) { App.UI.showToast("RPC Sync Error", "error"); }
+                },
+                async fetchHistory() {
+                    try {
+                        const pub = new solanaWeb3.PublicKey(App.State.pubkey);
+                        const sigs = await App.State.conn.getSignaturesForAddress(pub, {limit: 10});
+                        
+                        const html = sigs.length === 0 ? '<p class="subtitle text-center mt-24">No transactions found.</p>' : sigs.map(s => `
+                            <div class="list-item" onclick="window.open('https://solscan.io/tx/${s.signature}', '_blank')">
+                                <div class="item-icon" style="color:var(--primary);"><i class="fa-solid fa-link"></i></div>
+                                <div class="item-info">
+                                    <div class="item-title">${s.err ? '<span class="text-red">Failed Tx</span>' : 'Confirmed Tx'}</div>
+                                    <div class="item-sub">${new Date(s.blockTime*1000).toLocaleString()}</div>
+                                </div>
+                                <i class="fa-solid fa-chevron-right text-muted"></i>
+                            </div>
+                        `).join('');
+                        document.getElementById('tx-list').innerHTML = html;
+                    } catch(e) {}
+                },
+                
+                // Send Flow
+                validateAddress() {
+                    const t = document.getElementById('tx-to').value.trim();
+                    const s = document.getElementById('tx-status');
+                    const b = document.getElementById('btn-review');
+                    if(!t) { s.innerText=''; b.disabled=true; return; }
+                    try { new solanaWeb3.PublicKey(t); s.innerText="Valid Solana Address"; s.style.color="var(--success)"; b.disabled=false; }
+                    catch(e) { s.innerText="Invalid Address Checksum"; s.style.color="var(--danger)"; b.disabled=true; }
+                },
+                setMax() { document.getElementById('tx-amount').value = App.State.balances.sol; },
+                async simulateTx() {
+                    const to = document.getElementById('tx-to').value.trim();
+                    const amt = parseFloat(document.getElementById('tx-amount').value);
+                    if(!to || amt<=0 || amt>App.State.balances.sol) return App.UI.showToast("Invalid Amount", "error");
+                    
+                    document.getElementById('btn-review').innerHTML = '<div class="loader"></div>';
+                    try {
+                        const fromPub = new solanaWeb3.PublicKey(App.State.pubkey);
+                        const toPub = new solanaWeb3.PublicKey(to);
+                        const { blockhash } = await App.State.conn.getLatestBlockhash();
+                        
+                        const tx = new solanaWeb3.Transaction({ recentBlockhash: blockhash, feePayer: fromPub }).add(
+                            solanaWeb3.SystemProgram.transfer({ fromPubkey: fromPub, toPubkey: toPub, lamports: Math.floor(amt * solanaWeb3.LAMPORTS_PER_SOL) })
+                        );
+                        
+                        const sim = await App.State.conn.simulateTransaction(tx, [fromPub]);
+                        
+                        App.State.tempTx = { tx, to, amt };
+                        App.UI.closeSheet('sheet-send');
+                        App.UI.confirm("Confirm Send", `Send ${amt} SOL to<br><span style="font-size:11px;word-break:break-all;color:var(--text-muted);">${to}</span>?`, () => {
+                            App.UI.openSheet('sheet-tx-pin');
+                        });
+                    } catch(e) { App.UI.showToast("Simulation Failed", "error"); }
+                    finally { document.getElementById('btn-review').innerHTML = 'Review Send <i class="fa-solid fa-arrow-right"></i>'; }
+                },
+                async executeTx(privStr) {
+                    App.UI.showToast("Transmitting to Mainnet...", "info");
+                    try {
+                        const kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(privStr)));
+                        const sig = await solanaWeb3.sendAndConfirmTransaction(App.State.conn, App.State.tempTx.tx, [kp]);
+                        App.UI.showToast("Tx Success! " + sig.slice(0,8));
+                        App.State.tempTx = null;
+                        this.fetchDashboard();
+                    } catch(e) { App.UI.showToast("Transaction Failed", "error"); }
+                    finally { App.UI.hideLoader(); }
+                },
+
+                // Receive Flow & QR
+                generateQR() {
+                    const c = document.getElementById('qr-container'); c.innerHTML = '';
+                    const a = document.getElementById('rx-amount').value;
+                    let txt = `solana:${App.State.pubkey}`; if(a && a>0) txt += `?amount=${a}`;
+                    new QRCode(c, { text: txt, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.H });
+                },
+                downloadQR() {
+                    const cvs = document.querySelector('#qr-container canvas');
+                    if(!cvs) return;
+                    const a = document.createElement('a'); a.href = cvs.toDataURL("image/png"); a.download = "MySol_QR.png"; a.click();
+                },
+                
+                // QR Scanner
+                startScanner() {
+                    document.getElementById('qr-reader').style.display = 'block';
+                    if(!App.State.qrScanner) App.State.qrScanner = new Html5Qrcode("qr-reader");
+                    App.State.qrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
+                        this.stopScanner();
+                        let addr = text;
+                        if(text.startsWith('solana:')) {
+                            const p = text.split('?'); addr = p[0].replace('solana:','');
+                            if(p[1]) { const sp = new URLSearchParams(p[1]); if(sp.has('amount')) document.getElementById('tx-amount').value = sp.get('amount'); }
+                        }
+                        document.getElementById('tx-to').value = addr; this.validateAddress();
+                    }).catch(e => App.UI.showToast("Camera Error", "error"));
+                },
+                stopScanner() {
+                    if(App.State.qrScanner && App.State.qrScanner.isScanning) { App.State.qrScanner.stop(); document.getElementById('qr-reader').style.display = 'none'; }
+                },
+                scanFile(e) {
+                    if(!e.target.files.length) return;
+                    if(!App.State.qrScanner) App.State.qrScanner = new Html5Qrcode("qr-reader");
+                    App.State.qrScanner.scanFile(e.target.files[0], true).then(text => {
+                        let addr = text; if(text.startsWith('solana:')) addr = text.replace('solana:','').split('?')[0];
+                        document.getElementById('tx-to').value = addr; this.validateAddress();
+                    }).catch(e => App.UI.showToast("QR not found", "error"));
+                }
+            },
+
+            // UI Manipulation
+            UI: {
+                showView(id) { document.querySelectorAll('.view').forEach(e => e.classList.remove('active')); document.getElementById(id).classList.add('active'); },
+                switchTab(id, el) { this.showView(id); document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active')); el.classList.add('active'); },
+                openSheet(id) { document.getElementById(id).classList.add('show'); },
+                closeSheet(id) { document.getElementById(id).classList.remove('show'); },
+                showToast(msg, type='success') {
+                    const t = document.getElementById('toast');
+                    t.innerHTML = `<i class="fa-solid ${type==='error'?'fa-circle-xmark text-red':'fa-circle-check text-green'}"></i> ${msg}`;
+                    t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
+                },
+                updateDots(id, c) { document.querySelectorAll(`#${id} .dot`).forEach((d,i) => i<c ? d.classList.add('filled') : d.classList.remove('filled')); },
+                togglePassword(id) { const el = document.getElementById(id); el.type = el.type === 'password' ? 'text' : 'password'; },
+                copyText(txt) { navigator.clipboard.writeText(txt).then(()=>this.showToast('Copied')); },
+                showLoader() { /* Implement screen block loader if needed */ },
+                hideLoader() { /* Implement screen block loader if needed */ },
+                
+                alert(title, msg) {
+                    document.getElementById('dialog-icon').innerHTML = '<i class="fa-solid fa-circle-info text-primary"></i>';
+                    document.getElementById('dialog-title').innerText = title; document.getElementById('dialog-msg').innerHTML = msg;
+                    document.getElementById('dialog-actions').innerHTML = `<button class="btn btn-primary" onclick="App.UI.closeSheet('sys-dialog')">OK</button>`;
+                    this.openSheet('sys-dialog');
+                },
+                confirm(title, msg, onYes) {
+                    document.getElementById('dialog-icon').innerHTML = '<i class="fa-solid fa-circle-question text-primary"></i>';
+                    document.getElementById('dialog-title').innerText = title; document.getElementById('dialog-msg').innerHTML = msg;
+                    document.getElementById('dialog-actions').innerHTML = `
+                        <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog')">Cancel</button>
+                        <button class="btn btn-primary" id="dialog-btn-yes">Yes</button>`;
+                    document.getElementById('dialog-btn-yes').onclick = () => { this.closeSheet('sys-dialog'); onYes(); };
+                    this.openSheet('sys-dialog');
+                },
+
+                toggleTheme() {
+                    App.State.theme = App.State.theme === 'dark' ? 'light' : 'dark';
+                    document.documentElement.setAttribute('data-theme', App.State.theme);
+                    localStorage.setItem('sol_theme', App.State.theme);
+                    document.getElementById('icon-theme').className = App.State.theme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+                },
+                toggleLang() {
+                    App.State.lang = App.State.lang === 'EN' ? 'ID' : 'EN';
+                    localStorage.setItem('sol_lang', App.State.lang);
+                    this.applyLang();
+                },
+                applyLang() {
+                    const isId = App.State.lang === 'ID';
+                    document.getElementById('txt-lang').innerText = App.State.lang;
+                    document.getElementById('txt-welcome').innerHTML = isId ? 'Mesin On-Chain Premium.<br>Aman, Cepat, & Non-Kustodian.' : 'Premium On-Chain Engine.<br>Secure, Fast, & Non-Custodial.';
+                    document.getElementById('txt-create').innerText = isId ? 'Buat Dompet' : 'Create Wallet';
+                    document.getElementById('txt-import').innerText = isId ? 'Impor Dompet' : 'Import Wallet';
+                    document.getElementById('txt-est').innerText = isId ? 'Est. Total Aset' : 'Est. Total Asset';
+                    document.getElementById('txt-btn-rx').innerText = isId ? 'Terima' : 'Receive';
+                    document.getElementById('txt-btn-tx').innerText = isId ? 'Kirim' : 'Send';
+                    document.getElementById('txt-assets').innerText = isId ? 'Aset' : 'Assets';
+                    document.getElementById('txt-history').innerText = isId ? 'Riwayat' : 'Transactions';
+                    document.getElementById('nav-home').innerText = isId ? 'Beranda' : 'Home';
+                    document.getElementById('nav-history').innerText = isId ? 'Riwayat' : 'History';
+                    document.getElementById('nav-settings').innerText = isId ? 'Pengaturan' : 'Settings';
+                },
+
+                async initDashboard() {
+                    document.documentElement.setAttribute('data-theme', App.State.theme);
+                    document.getElementById('icon-theme').className = App.State.theme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+                    this.applyLang();
+                    
+                    const activeW = App.State.wallets.find(x => x.id === App.State.activeId);
+                    document.getElementById('dash-wallet-name').innerText = activeW.name;
+                    document.getElementById('dash-address').innerText = activeW.pub.slice(0,4)+'...'+activeW.pub.slice(-4);
+                    document.getElementById('rx-address').value = activeW.pub;
+                    
+                    // Render Wallet Manager List
+                    document.getElementById('wallet-list-ui').innerHTML = App.State.wallets.map(w => `
+                        <div class="list-item" onclick="App.State.activeId='${w.id}'; localStorage.setItem('sol_active','${w.id}'); window.location.reload();">
+                            <div class="item-icon" style="color:var(--primary);"><i class="fa-solid fa-wallet"></i></div>
+                            <div class="item-info"><div class="item-title">${w.name}</div><div class="item-sub">${w.pub.slice(0,6)}...</div></div>
+                            ${w.id === App.State.activeId ? '<i class="fa-solid fa-check text-green"></i>' : ''}
+                        </div>
+                    `).join('');
+                    
+                    // Export Key setup
+                    try {
+                        const pk = await App.Crypto.decrypt(activeW.enc, App.Auth.pin1);
+                        document.getElementById('export-key-val').value = pk;
+                    } catch(e) {}
+
+                    this.showView('view-dashboard');
+                    App.Network.fetchDashboard();
+                    App.Network.generateQR();
+                },
+                renderDashboard() {
+                    const s = App.State.balances;
+                    document.getElementById('dash-fiat').innerText = `$${s.usd.toFixed(2)}`;
+                    document.getElementById('tx-max-bal').innerText = s.sol.toFixed(4);
+                    
+                    let html = `
+                        <div class="glass list-item" onclick="App.UI.openSheet('sheet-send')">
+                            <div class="item-icon"><i class="fa-brands fa-solana"></i></div>
+                            <div class="item-info"><div class="item-title">Solana</div><div class="item-sub text-green">+0.00% (24h)</div></div>
+                            <div class="item-value"><div class="val-title">${s.sol.toFixed(4)} SOL</div><div class="val-sub">$${s.usd.toFixed(2)}</div></div>
+                        </div>
+                    `;
+                    document.getElementById('asset-list').innerHTML = html;
+                }
+            },
+
+            Init() { if(App.State.wallets.length > 0) App.Auth.initLogin(); }
+        };
+
+        window.onload = () => App.Init();
+    </script>
+</body>
+</html>
