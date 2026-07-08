@@ -705,6 +705,63 @@
             closeModal('modal-send'); openModal('modal-confirm');
         }
 
+        // --- FITUR QR CODE & RECEIVE FLOW ---
+        let qrCodeInstance = null;
+
+        function openReceiveModal() {
+            const pubKey = currentWalletState.publicKey;
+            document.getElementById('fullAddressDisplay').value = pubKey;
+            document.getElementById('requestAmount').value = '';
+            
+            // Format standar Solana Pay
+            generateQR(`solana:${pubKey}`);
+            openModal('modal-receive');
+        }
+
+        function updateReceiveQR() {
+            const pubKey = currentWalletState.publicKey;
+            const amount = document.getElementById('requestAmount').value;
+            
+            let qrText = `solana:${pubKey}`;
+            if(amount && amount > 0) qrText += `?amount=${amount}`;
+            
+            generateQR(qrText);
+        }
+
+        function generateQR(text) {
+            const container = document.getElementById('qrcode-container');
+            container.innerHTML = ""; // Bersihkan QR sebelumnya
+            
+            // Cek apakah library easy.qrcode sudah termuat
+            if (typeof QRCode === "undefined") {
+                showToast("Memuat library QR Code...", "warning");
+                return;
+            }
+
+            // Render QR Code dengan Logo Solana di tengah
+            qrCodeInstance = new QRCode(container, {
+                text: text,
+                width: 220,
+                height: 220,
+                logo: "https://cryptologos.cc/logos/solana-sol-logo.png", // Logo Solana transparan
+                logoWidth: 60,
+                logoHeight: 60,
+                logoBackgroundTransparent: true,
+                correctLevel: QRCode.CorrectLevel.H 
+            });
+        }
+
+        function downloadQR() {
+            const canvas = document.querySelector('#qrcode-container canvas');
+            if(!canvas) return showToast("QR Code belum siap", "error");
+            
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL("image/png");
+            a.download = `Solana_QR_${currentWalletState.publicKey.slice(0,6)}.png`;
+            a.click();
+            showToast("QR Downloaded successfully!", "success");
+        }
+
         // --- FITUR SCANNER KAMERA & UPLOAD (html5-qrcode) ---
         let html5QrCode = null;
 
