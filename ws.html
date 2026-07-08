@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MySolWallet | Premium Web3 Wallet</title>
+    
+    <!-- Solana Web3 & Icons -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/easyqrcodejs@4.6.1/dist/easy.qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* =======================================================
+           ROOT VARIABLES & GLOBAL STYLES
+           ======================================================= */
+        :root {
+            --bg-color: #0B0E14; 
+            --surface-color: #151A22; 
+            --surface-light: #202630;
+            --primary-color: #14F195; 
+            --primary-hover: #10c57a;
+            --secondary-color: #9945FF; 
+            --text-main: #FFFFFF;
+            --text-muted: #8E9BAE;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --danger-color: #FF4949;
+            --font-main: 'Inter', sans-serif;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-main); }
+        body {
+            background-color: #000; display: flex; justify-content: center; align-items: center;
+            height: 100vh; height: 100dvh; color: var(--text-main); overflow: hidden;
+        }
+
+        /* =======================================================
+           TOAST NOTIFICATION (Glassmorphism)
+           ======================================================= */
+        .toast-container {
+            position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 9999;
+            display: flex; flex-direction: column; gap: 12px; pointer-events: none; width: 90%; max-width: 380px;
+        }
+        .glass-toast {
+            background: rgba(21, 26, 34, 0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-main);
+            padding: 14px 20px; border-radius: 16px; font-size: 14px; font-weight: 500;
+            display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+            transform: translateY(-20px) scale(0.95); opacity: 0; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .glass-toast.show { transform: translateY(0) scale(1); opacity: 1; }
+        .glass-toast i { font-size: 18px; }
+        .toast-success i { color: var(--primary-color); }
+        .toast-error i { color: var(--danger-color); }
+        .toast-info i { color: var(--secondary-color); }
+        .toast-warning i { color: #FFA500; }
+
+        /* =======================================================
+           APP CONTAINER & SCREEN TRANSITIONS
+           ======================================================= */
+        .app-container {
+            width: 100%; max-width: 420px; height: 100vh; height: 100dvh;
+            background-color: var(--bg-color); position: relative; overflow: hidden;
+            box-shadow: 0 0 40px rgba(0,0,0,0.5); display: flex; flex-direction: column;
+        }
+        
+        .flow-wrapper {
+            width: 100%; height: 100%; display: flex; flex-direction: column;
+        }
+        .flow-wrapper.hidden { display: none !important; }
+
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; opacity: 0; visibility: hidden;
+            transform: translateX(20px); transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            background-color: var(--bg-color); z-index: 10; overflow-y: auto;
+        }
+        .screen.active { opacity: 1; visibility: visible; transform: translateX(0); }
+        .screen.hidden { display: none !important; }
+
+        /* =======================================================
+           UTILITIES, BUTTONS, & INPUTS
+           ======================================================= */
+        h1, h2 { font-weight: 700; letter-spacing: -0.5px; }
+        .subtitle, .instruction { color: var(--text-muted); font-size: 14px; margin-top: 8px; line-height: 1.5; }
+        .text-center { text-align: center; } .text-right { text-align: right; }
+        .text-primary { color: var(--primary-color); } .mt-10 { margin-top: 10px; } .mt-20 { margin-top: 20px; } .mb-10 { margin-bottom: 10px; }
+        .padding-24 { padding: 24px; } .d-flex { display: flex; } .gap-10 { gap: 10px; } .break-word { word-break: break-all; }
+
+        .branding { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .solana-logo { font-size: 64px; color: var(--primary-color); margin-bottom: 20px; background: -webkit-linear-gradient(45deg, var(--primary-color), var(--secondary-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0px 4px 12px rgba(20, 241, 149, 0.3)); }
+        
+        .header-nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
+        .btn-icon { background: transparent; border: none; color: var(--text-main); font-size: 20px; cursor: pointer; transition: color 0.2s; }
+        .btn-icon:active { color: var(--primary-color); }
+
+        .action-bottom { 
+            padding: 24px; 
+            padding-bottom: 32px; /* Jarak aman dari ujung bawah layar HP */
+            background: linear-gradient(to top, var(--bg-color) 80%, transparent); 
+            margin-top: auto; 
+        }
+        .btn { width: 100%; padding: 16px; border-radius: var(--radius-md); font-size: 16px; font-weight: 600; border: none; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; transition: all 0.2s; }
+        .btn-primary { background-color: var(--primary-color); color: #000; box-shadow: 0 4px 14px rgba(20, 241, 149, 0.2); }
+        .btn-primary:active { transform: scale(0.98); background-color: var(--primary-hover); }
+        .btn-secondary { background-color: var(--surface-color); color: var(--text-main); margin-top: 12px; }
+        .btn-secondary:active { background-color: var(--surface-light); }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+        .btn-outline-dashed { background: transparent; border: 1px dashed var(--border-color); color: var(--text-muted); width: 100%; padding: 16px; border-radius: var(--radius-md); cursor: pointer; font-weight: 600; transition: border-color 0.2s; }
+        .btn-outline-dashed:active { border-color: var(--primary-color); color: var(--text-main); }
+
+        .content-body { padding: 24px; flex: 1; overflow-y: auto; }
+        .alert-box.warning { background: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); color: #FFA500; padding: 12px; border-radius: 8px; display: flex; gap: 12px; font-size: 13px; }
+        .seed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+        .seed-word { background: var(--surface-color); padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; display: flex; align-items: center; border: 1px solid var(--border-color); }
+        .seed-word span { color: var(--text-muted); font-size: 12px; width: 24px; }
+
+        .premium-input { width: 100%; padding: 14px 16px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-main); font-size: 15px; outline: none; transition: border-color 0.2s; }
+        .premium-input:focus { border-color: var(--primary-color); }
+        .private-key-box label, .amount-header label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+        .copy-input { display: flex; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow: hidden; }
+        .copy-input input { flex: 1; background: transparent; border: none; padding: 14px 16px; color: var(--text-main); outline: none; font-family: monospace; }
+        .copy-input button { background: transparent; border: none; border-left: 1px solid var(--border-color); padding: 0 16px; color: var(--primary-color); cursor: pointer; }
+        .copy-input button:active { background: var(--surface-light); }
+
+        /* =======================================================
+           PIN KEYPADS (Shared Design)
+           ======================================================= */
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 0 40px 20px; margin-top: auto; }
+        .key { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 50%; color: white; font-size: 24px; height: 70px; width: 70px; justify-self: center; cursor: pointer; transition: background 0.1s, transform 0.1s; }
+        .key:active { background: var(--surface-light); transform: scale(0.95); }
+        .key.invisible { background: transparent; border: none; pointer-events: none; }
+        .pin-display { display: flex; justify-content: center; gap: 12px; margin-bottom: 30px; }
+        .pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border-color); transition: all 0.2s; }
+        .pin-dot.filled { background-color: var(--primary-color); border-color: var(--primary-color); box-shadow: 0 0 8px rgba(20, 241, 149, 0.5); }
+
+        /* =======================================================
+           DASHBOARD SPA UI & HIERARCHY FIX
+           ======================================================= */
+        .top-navbar { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border-color); }
+        .logo-area { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+        .nav-actions { display: flex; gap: 15px; }
+
+        /* KUNCI PERBAIKAN BUG HIERARKI: */
+        .view-section { flex: 1; overflow-y: auto; padding-bottom: 90px; display: block; }
+        .view-section.hidden { display: none !important; } /* Memaksa elemen yang tersembunyi untuk hilang dari layout */
+
+        .wallet-address-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--surface-color); padding: 8px 16px; border-radius: 20px; font-size: 14px; border: 1px solid var(--border-color); margin: 0 auto; transition: background 0.2s; cursor: pointer;}
+        .wallet-address-badge:active { background: var(--surface-light); }
+        .amount-header { display: flex; justify-content: space-between; align-items: center; }
+        .max-btn { color: var(--primary-color); font-size: 12px; font-weight: 600; cursor: pointer; }
+
+        .asset-card, .tx-item, .menu-item { background: var(--surface-color); padding: 16px; border-radius: var(--radius-md); display: flex; align-items: center; gap: 16px; border: 1px solid var(--border-color); margin-bottom: 12px; transition: transform 0.2s, border-color 0.2s; cursor: pointer; color: white;}
+        .asset-card:active, .tx-item:active, .menu-item:active { transform: scale(0.98); background: var(--surface-light); }
+        .asset-icon, .tx-icon { width: 42px; height: 42px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 20px; border: 1px solid var(--border-color); }
+        .asset-icon { background: linear-gradient(45deg, #111, #222); color: var(--primary-color); }
+        .tx-icon { background: rgba(255,255,255,0.05); } .tx-icon.receive { color: var(--primary-color); }
+        .asset-info, .tx-info { flex: 1; } .asset-info h3, .tx-info h4 { font-size: 16px; margin-bottom: 4px; }
+        .price-change { font-size: 12px; } .price-change.positive { color: var(--primary-color); }
+        .asset-balance h3 { font-size: 16px; margin-bottom: 4px; }
+
+        .bottom-nav { display: flex; justify-content: space-around; align-items: center; padding: 12px 0 24px; background: rgba(11, 14, 20, 0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--border-color); position: absolute; bottom: 0; width: 100%; z-index: 50; }
+        .nav-item { background: transparent; border: none; color: var(--text-muted); font-size: 12px; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: color 0.2s; }
+        .nav-item i { font-size: 20px; } .nav-item.active { color: var(--primary-color); }
+
+        /* =======================================================
+           MODALS / OVERLAYS
+           ======================================================= */
+        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); display: flex; flex-direction: column; justify-content: flex-end; z-index: 100; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+        .modal-overlay:not(.hidden) { opacity: 1; visibility: visible; }
+        .modal-content { background: var(--bg-color); border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg); box-shadow: 0 -10px 40px rgba(0,0,0,0.5); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); display: flex; flex-direction: column; max-height: 90%; }
+        .modal-overlay:not(.hidden) .modal-content { transform: translateY(0); }
+        .modal-content.full-height { height: 100%; max-height: 100%; border-radius: 0; }
+
+        /* =======================================================
+           REVISI UI (Tombol Bundar & Layout Baru)
+           ======================================================= */
+        .justify-content-center { justify-content: center; }
+        .gap-20 { gap: 20px; }
+        .text-left { text-align: left; }
+        
+        .action-buttons { margin-top: 24px; margin-bottom: 10px; }
+        .action-btn-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+        .circle-btn {
+            width: 56px; height: 56px; border-radius: 50%; border: none;
+            background: var(--primary-color); color: #000; font-size: 20px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 4px 14px rgba(20, 241, 149, 0.2); transition: transform 0.2s;
+        }
+        .action-btn-wrapper:active .circle-btn { transform: scale(0.95); }
+        .action-btn-wrapper span { font-size: 13px; font-weight: 600; color: var(--text-main); }
+        
+        .qr-wrapper { background: #fff; padding: 16px; border-radius: 16px; display: inline-block; }
+    </style>
+</head>
+<body class="dark-mode">
+
+    <!-- Toast Container Global -->
+    <div id="toast-container" class="toast-container"></div>
+    
+    <div class="app-container">
+        
+        <!-- ========================================== -->
+        <!-- FLOW 1: ONBOARDING (CREATE/IMPORT WALLET)  -->
+        <!-- ========================================== -->
+        <div id="onboarding-flow" class="flow-wrapper active">
+            
+            <!-- Welcome Screen -->
+            <div id="step-welcome" class="screen active">
+                <div class="branding">
+                    <i class="fa-brands fa-solana solana-logo"></i>
+                    <h1>MySolWallet</h1>
+                    <p class="subtitle">Secure. Premium. Non-Custodial.</p>
+                </div>
+                <div class="action-bottom">
+                    <button class="btn btn-primary" onclick="goToStep('step-create-1')"><i class="fa-solid fa-plus"></i> Create New Wallet</button>
+                    <button class="btn btn-secondary" onclick="goToStep('step-import')"><i class="fa-solid fa-download"></i> Import Wallet</button>
+                </div>
+            </div>
+
+            <!-- Create Wallet (Phrase & Priv Key) -->
+            <div id="step-create-1" class="screen hidden">
+                <div class="header-nav">
+                    <button class="btn-icon" onclick="goToStep('step-welcome')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h2>Secret Backup</h2>
+                    <div style="width: 24px;"></div>
+                </div>
+                <div class="content-body">
+                    <div class="alert-box warning"><i class="fa-solid fa-triangle-exclamation"></i><p>Write down these 12 words. Do not share them with anyone.</p></div>
+                    <div class="seed-grid" id="seedPhraseGrid"></div>
+                    <div class="private-key-box mt-20">
+                        <label>Private Key</label>
+                        <div class="copy-input">
+                            <input type="password" value="" readonly id="privKeyDisplay">
+                            <button onclick="toggleViewPrivKey()" id="viewBtn" title="Show/Hide"><i class="fa-regular fa-eye" id="eyeIcon"></i></button>
+                            <button onclick="copyPrivKey()" title="Copy"><i class="fa-regular fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="action-bottom">
+                    <button class="btn btn-outline mb-10" onclick="downloadKeystore()"><i class="fa-solid fa-file-arrow-down"></i> Download Keystore JSON</button>
+                    <button class="btn btn-primary" onclick="goToStep('step-pin-setup')">Verify & Next <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+
+            <!-- Import Wallet -->
+            <div id="step-import" class="screen hidden">
+                <div class="header-nav">
+                    <button class="btn-icon" onclick="goToStep('step-welcome')"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h2>Import Wallet</h2>
+                    <div style="width: 24px;"></div>
+                </div>
+                <div class="content-body">
+                    <div class="alert-box warning"><i class="fa-solid fa-triangle-exclamation"></i><p>Paste your private key below (JSON array like [12,34,...] or a Base58 string). Never share this with anyone.</p></div>
+                    <div class="private-key-box mt-20">
+                        <label>Private Key</label>
+                        <textarea id="importPrivKeyInput" class="premium-input mt-10" rows="4" style="resize: vertical; font-family: monospace;" placeholder="[12,34,56,...] or Base58 string"></textarea>
+                    </div>
+                    <p id="importStatus" style="font-size: 12px; margin-top: 8px; color: var(--text-muted);"></p>
+                </div>
+                <div class="action-bottom">
+                    <button class="btn btn-primary" onclick="importWallet()">Import Wallet <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+
+            <!-- Create & Confirm PIN Setup -->
+            <div id="step-pin-setup" class="screen hidden">
+                <div class="header-nav">
+                    <button class="btn-icon" onclick="handlePinBackButton()"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h2 id="pinTitle">Create PIN</h2>
+                    <div style="width: 24px;"></div>
+                </div>
+                <div class="content-body text-center">
+                    <div id="pinStatusIcon" class="mt-10 mb-10"><i class="fa-solid fa-shield-halved lock-icon" style="font-size: 32px; color: var(--text-muted);"></i></div>
+                    <p id="pinInstruction" class="instruction mt-20">Create an 8-digit PIN to secure your device.</p>
+                    <div class="pin-display mt-20">
+                        <div class="pin-dot ob-dot"></div><div class="pin-dot ob-dot"></div><div class="pin-dot ob-dot"></div><div class="pin-dot ob-dot"></div>
+                        <div class="pin-dot ob-dot"></div><div class="pin-dot ob-dot"></div><div class="pin-dot ob-dot"></div><div class="pin-dot ob-dot"></div>
+                    </div>
+                </div>
+                <div class="keypad" id="pinKeypad">
+                    <button class="key key-ob">1</button><button class="key key-ob">2</button><button class="key key-ob">3</button>
+                    <button class="key key-ob">4</button><button class="key key-ob">5</button><button class="key key-ob">6</button>
+                    <button class="key key-ob">7</button><button class="key key-ob">8</button><button class="key key-ob">9</button>
+                    <button class="key invisible"></button><button class="key key-ob">0</button><button class="key key-ob"><i class="fa-solid fa-delete-left"></i></button>
+                </div>
+                <div class="action-bottom hidden" id="unlockActionBtn">
+                    <button class="btn btn-primary" id="confirmPinBtn">Unlock Wallet <i class="fa-solid fa-unlock-keyhole"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- FLOW 2: DASHBOARD SPA                      -->
+        <!-- ========================================== -->
+        <div id="dashboard-flow" class="flow-wrapper hidden">
+            
+            <div class="top-navbar">
+                <div class="logo-area"><i class="fa-brands fa-solana text-primary" style="font-size: 24px;"></i><span class="brand-text">MySolWallet</span></div>
+                <div class="nav-actions">
+                    <button class="btn-icon" onclick="showToast('Language Switcher','info')"><i class="fa-solid fa-globe"></i></button>
+                    <button class="btn-icon" onclick="showToast('No new notifications','info')"><i class="fa-solid fa-bell"></i></button>
+                    <button class="btn-icon" onclick="lockSession()"><i class="fa-solid fa-right-from-bracket text-danger"></i></button>
+                </div>
+            </div>
+
+            <!-- Home View -->
+            <div id="view-home" class="view-section active">
+                
+                <div class="wallet-address-badge text-center mt-20" onclick="copyAddress()">
+                    <span id="shortAddress" class="badge-pill">Sol...9xZ</span> <i class="fa-regular fa-copy"></i>
+                </div>
+                
+                <div class="balance-display text-center mt-10">
+                    <h1 id="totalUsdBalance">$0.00</h1>
+                    <p class="subtitle">Total Portfolio</p>
+                </div>
+
+                <div class="action-buttons d-flex justify-content-center gap-20">
+                    <div class="action-btn-wrapper" onclick="openReceiveModal()">
+                        <button class="circle-btn"><i class="fa-solid fa-arrow-down"></i></button>
+                        <span>Receive</span>
+                    </div>
+                    <div class="action-btn-wrapper" onclick="openModal('modal-send')">
+                        <button class="circle-btn"><i class="fa-solid fa-arrow-up"></i></button>
+                        <span>Send</span>
+                    </div>
+                </div>
+
+                <div class="asset-list mt-20 padding-24">
+                    <div class="asset-card" onclick="openAssetAction('SOL')">
+                        <div class="asset-icon"><i class="fa-brands fa-solana"></i></div>
+                        <div class="asset-info"><h3>Solana</h3><p class="price-change positive"><i class="fa-solid fa-caret-up"></i> 5.2%</p></div>
+                        <div class="asset-balance text-right"><h3 id="solBalance">0.00 SOL</h3><p id="solUsdValue" class="subtitle">$0.00</p></div>
+                    </div>
+                    <button class="btn btn-outline-dashed mt-20" onclick="showToast('Import SPL Coming Soon','info')"><i class="fa-solid fa-plus"></i> Import SPL Token</button>
+                </div>
+            </div>
+
+            <!-- Transaction History View -->
+            <div id="view-transaction" class="view-section hidden">
+                <div class="padding-24">
+                    <h2>Transaction History</h2>
+                    <div class="tx-list mt-20">
+                        <div class="tx-item">
+                            <div class="tx-icon receive"><i class="fa-solid fa-arrow-down"></i></div>
+                            <div class="tx-info"><h4>Receive SOL</h4><p class="subtitle">System Init</p></div>
+                            <div class="tx-amount text-primary">+0.00 SOL</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Setting View -->
+            <div id="view-setting" class="view-section hidden">
+                <div class="padding-24">
+                    <h2>Settings</h2>
+                    <div class="settings-menu mt-20">
+                        <button class="menu-item" onclick="showToast('Security Options', 'info')"><i class="fa-solid fa-shield-halved text-primary"></i> Security Level</button>
+                        <button class="menu-item text-danger" onclick="deleteWalletData()"><i class="fa-solid fa-trash"></i> Delete Wallet Data</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Receive & Send Modal -->
+            <div id="modal-receive" class="modal-overlay hidden">
+                <div class="modal-content slide-up text-center padding-24" style="max-height: 95%; overflow-y: auto;">
+                    <div class="header-nav" style="padding: 0 0 20px 0; border: none;">
+                        <button class="btn-icon" onclick="closeModal('modal-receive')"><i class="fa-solid fa-arrow-left"></i></button>
+                        <h2>Receive SOL</h2>
+                        <div style="width: 24px;"></div>
+                    </div>
+                    
+                    <div id="qrcode-container" class="qr-wrapper mt-10"></div>
+                    
+                    <button class="btn btn-outline-dashed mt-20" onclick="downloadQR()"><i class="fa-solid fa-download"></i> Download QR Image</button>
+
+                    <div class="mt-20 text-left">
+                        <label>Request Amount (Optional)</label>
+                        <input type="number" id="requestAmount" placeholder="0.00 SOL" class="premium-input mt-10" oninput="updateReceiveQR()">
+                    </div>
+
+                    <div class="mt-20 text-left">
+                        <label>Your Solana Address</label>
+                        <div class="copy-input mt-10">
+                            <input type="text" id="fullAddressDisplay" readonly>
+                            <button onclick="copyAddress()"><i class="fa-regular fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="modal-send" class="modal-overlay hidden">
+                <div class="modal-content slide-up full-height">
+                    <div class="header-nav">
+                        <button class="btn-icon" onclick="closeModal('modal-send'); stopQRScanner();"><i class="fa-solid fa-xmark"></i></button>
+                        <h2>Send SOL</h2>
+                        <div style="width: 24px;"></div>
+                    </div>
+                    
+                    <div id="qr-reader" style="width: 100%; display: none; background: #000;"></div>
+
+                    <div class="d-flex gap-10 mt-10">
+    <input type="text" id="sendAddress" placeholder="Paste Solana Address" class="premium-input" oninput="verifyAddress()">
+    
+    <button class="btn-icon" style="background: var(--surface-color); border: 1px solid var(--border-color); padding: 0 16px;" onclick="startQRScanner()">
+        <i class="fa-solid fa-qrcode"></i>
+    </button>
+    
+    <button class="btn-icon" style="background: var(--surface-color); border: 1px solid var(--border-color); padding: 0 16px;" onclick="document.getElementById('qr-input-file').click()">
+        <i class="fa-solid fa-image"></i>
+    </button>
+    <input type="file" id="qr-input-file" accept="image/*" style="display:none">
+                    </div>
+                        <p id="addressStatus" style="font-size: 12px; margin-top: 8px; color: var(--text-muted);"></p>
+                        
+                        <div class="amount-header mt-20">
+                            <label>Amount</label>
+                            <span class="max-btn" onclick="setMaxAmount()">MAX: <span id="maxSol">0.00</span> SOL</span>
+                        </div>
+                        <input type="number" id="sendAmount" placeholder="0.00" class="premium-input mt-10">
+                        
+                        <button class="btn btn-primary mt-20" id="reviewSendBtn" onclick="openConfirmModal()" disabled>Review Send <i class="fa-solid fa-arrow-right"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Confirm Modal -->
+            <div id="modal-confirm" class="modal-overlay hidden">
+                <div class="modal-content slide-up text-center padding-24">
+                    <h2>Confirm Transaction</h2>
+                    <div class="confirm-details mt-20">
+                        <p>You are sending</p><h1 id="confirmAmount" class="text-primary mt-10">0.00 SOL</h1>
+                        <p class="mt-10">To Address:</p><p id="confirmAddress" class="subtitle break-word">---</p>
+                    </div>
+                    <div class="action-bottom d-flex gap-10 mt-20">
+                        <button class="btn btn-secondary" onclick="closeModal('modal-confirm')">Cancel</button>
+                        <button class="btn btn-primary" onclick="openPinModal()">Yes, Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TX PIN Modal -->
+            <div id="modal-pin-tx" class="modal-overlay hidden">
+                <div class="modal-content slide-up full-height">
+                    <div class="header-nav"><button class="btn-icon" onclick="closeModal('modal-pin-tx')"><i class="fa-solid fa-arrow-left"></i></button><h2>Enter PIN</h2><div style="width: 24px;"></div></div>
+                    <div class="padding-24 text-center">
+                        <p class="subtitle">Enter your 8-digit PIN to sign this transaction.</p>
+                        <div class="pin-display mt-20">
+                            <div class="pin-dot tx-dot"></div><div class="pin-dot tx-dot"></div><div class="pin-dot tx-dot"></div><div class="pin-dot tx-dot"></div>
+                            <div class="pin-dot tx-dot"></div><div class="pin-dot tx-dot"></div><div class="pin-dot tx-dot"></div><div class="pin-dot tx-dot"></div>
+                        </div>
+                    </div>
+                    <div class="keypad">
+                        <button class="key key-tx">1</button><button class="key key-tx">2</button><button class="key key-tx">3</button>
+                        <button class="key key-tx">4</button><button class="key key-tx">5</button><button class="key key-tx">6</button>
+                        <button class="key key-tx">7</button><button class="key key-tx">8</button><button class="key key-tx">9</button>
+                        <button class="key invisible"></button><button class="key key-tx">0</button><button class="key key-tx"><i class="fa-solid fa-delete-left"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Navigation -->
+            <div id="modal-pin-tx" class="modal-overlay hidden">
+                </div>
+
+            <div class="bottom-nav">
+                <button class="nav-item active" onclick="switchView('home', this)"><i class="fa-solid fa-wallet"></i><br>Home</button>
+                <button class="nav-item" onclick="switchView('transaction', this)"><i class="fa-solid fa-clock-rotate-left"></i><br>History</button>
+                <button class="nav-item" onclick="switchView('setting', this)"><i class="fa-solid fa-gear"></i><br>Setting</button>
+            </div>
+        </div>
+   </div>
+
+    <!-- ========================================== -->
+    <!-- LOGIKA JAVASCRIPT (CRYPTO + APP)           -->
+    <!-- ========================================== -->
+    <script>
+        // ----------------------------------------------------
+        // 1. CRYPTO SERVICE (Engine Keamanan)
+        // ----------------------------------------------------
+        const CryptoService = {
+            async deriveKey(pin, salt) {
+                const enc = new TextEncoder();
+                const keyMaterial = await window.crypto.subtle.importKey("raw", enc.encode(pin), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]);
+                return window.crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+            },
+            async encryptData(plainText, pin) {
+                const enc = new TextEncoder();
+                const salt = window.crypto.getRandomValues(new Uint8Array(16));
+                const iv = window.crypto.getRandomValues(new Uint8Array(12));
+                const key = await this.deriveKey(pin, salt);
+                const encryptedContent = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, enc.encode(plainText));
+                const encryptedBuffer = new Uint8Array(encryptedContent);
+                const combined = new Uint8Array(salt.length + iv.length + encryptedBuffer.length);
+                combined.set(salt, 0); combined.set(iv, salt.length); combined.set(encryptedBuffer, salt.length + iv.length);
+                return btoa(String.fromCharCode.apply(null, combined));
+            },
+            async decryptData(base64Cipher, pin) {
+                try {
+                    const combinedStr = atob(base64Cipher);
+                    const combined = new Uint8Array(combinedStr.length);
+                    for (let i = 0; i < combinedStr.length; i++) combined[i] = combinedStr.charCodeAt(i);
+                    const salt = combined.slice(0, 16); const iv = combined.slice(16, 28); const encryptedData = combined.slice(28);
+                    const key = await this.deriveKey(pin, salt);
+                    const decryptedContent = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, encryptedData);
+                    return new TextDecoder().decode(decryptedContent);
+                } catch (error) { return null; }
+            }
+        };
+
+        // ----------------------------------------------------
+        // 2. APLIKASI UTAMA (State, Toast, Onboarding)
+        // ----------------------------------------------------
+        const RPC_URL = "https://api.mainnet-beta.solana.com"; 
+        const connection = new solanaWeb3.Connection(RPC_URL, 'confirmed');
+        let currentWalletState = { publicKey: null, balances: { sol: 0, usd: 0 } };
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `glass-toast toast-${type}`;
+            let iconClass = type === 'success' ? 'fa-circle-check' : (type === 'error' ? 'fa-circle-xmark' : (type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info'));
+            
+            const iconEl = document.createElement('i'); iconEl.className = `fa-solid ${iconClass}`;
+            const textEl = document.createElement('span'); textEl.innerText = message;
+            
+            toast.appendChild(iconEl); toast.appendChild(textEl);
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 3000);
+        }
+
+        // --- SISTEM ROUTER CERDAS ---
+        window.onload = () => {
+            const savedPubKey = localStorage.getItem('MySolWallet_PubKey');
+            document.getElementById('onboarding-flow').classList.remove('hidden');
+            document.getElementById('dashboard-flow').classList.add('hidden');
+            if(savedPubKey) {
+                // Wallet already exists on this device: require PIN before dashboard access
+                showUnlockScreen();
+            }
+        };
+
+        // --- UNLOCK FLOW (returning user must enter PIN) ---
+        function showUnlockScreen() {
+            obPinStage = "unlock"; obPin = ""; obFirstPin = "";
+            document.getElementById('pinTitle').innerText = "Enter PIN";
+            document.getElementById('pinInstruction').innerText = "Enter your 8-digit PIN to unlock your wallet.";
+            document.getElementById('pinInstruction').style.color = "var(--text-muted)";
+            document.getElementById('pinStatusIcon').innerHTML = '<i class="fa-solid fa-lock lock-icon" style="font-size: 32px; color: var(--text-muted);"></i>';
+            document.getElementById('unlockActionBtn').classList.add('hidden');
+            document.getElementById('pinKeypad').style.display = "grid";
+            obDots.forEach(dot => dot.classList.remove('filled'));
+            goToStep('step-pin-setup');
+        }
+
+        async function attemptUnlock(pin) {
+            const encData = localStorage.getItem('MySolWallet_Data');
+            const privStr = await CryptoService.decryptData(encData, pin);
+            if (!privStr) {
+                showToast("Incorrect PIN. Try again.", "error");
+                obPin = ""; obDots.forEach(dot => dot.classList.remove('filled'));
+                return;
+            }
+            showToast("Wallet Unlocked!", "success");
+            document.getElementById('onboarding-flow').classList.add('hidden');
+            document.getElementById('dashboard-flow').classList.remove('hidden');
+            initDashboard();
+        }
+
+        function handlePinBackButton() {
+            if (obPinStage === "unlock") {
+                confirmResetWallet();
+            } else {
+                resetPinAndGoBack();
+            }
+        }
+
+        function confirmResetWallet() {
+            const ok = confirm("Forgot your PIN? Continuing will permanently delete your wallet from this device. Make sure you have backed up your private key or seed phrase. Continue?");
+            if (ok) {
+                localStorage.clear();
+                sessionStorage.clear();
+                showToast("Wallet removed from this device", "info");
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        }
+
+        function lockSession() {
+            showToast("Wallet locked", "info");
+            setTimeout(() => window.location.reload(), 600);
+        }
+
+        function deleteWalletData() {
+            const ok = confirm("This will permanently delete your wallet data from this device. Make sure you have backed up your private key or seed phrase — this action cannot be undone. Continue?");
+            if (ok) {
+                localStorage.clear();
+                sessionStorage.clear();
+                showToast("Wallet data deleted", "success");
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        }
+
+        // --- ONBOARDING FUNCTIONS ---
+        function goToStep(stepId) {
+            if(stepId === 'step-create-1') createNewWallet(); 
+            document.querySelectorAll('#onboarding-flow .screen').forEach(el => { el.classList.remove('active'); el.classList.add('hidden'); });
+            const target = document.getElementById(stepId);
+            if(target) { target.classList.remove('hidden'); setTimeout(() => target.classList.add('active'), 10); }
+        }
+
+        let pinSetupOrigin = 'step-create-1';
+
+        async function createNewWallet() {
+            pinSetupOrigin = 'step-create-1';
+            showToast("Generating secure keys...", "info");
+            const keypair = solanaWeb3.Keypair.generate();
+            const pubKey = keypair.publicKey.toString();
+            const privKeyString = JSON.stringify(Array.from(keypair.secretKey));
+
+            document.getElementById('privKeyDisplay').value = privKeyString; 
+            const seedPhraseGrid = document.getElementById('seedPhraseGrid');
+            seedPhraseGrid.innerHTML = ""; 
+            
+            const wordList = ["abstract", "bacon", "cabin", "dad", "eagle", "fabric", "gadget", "habit", "ice", "jacket", "kangaroo", "labor", "machine", "narrow", "oasis", "pact", "radar", "sad", "tact", "vacant", "wagon", "yacht", "zebra"];
+            for(let i = 1; i <= 12; i++) {
+                const randomValues = new Uint32Array(1); window.crypto.getRandomValues(randomValues);
+                const word = wordList[randomValues[0] % wordList.length];
+                const div = document.createElement('div'); div.className = 'seed-word'; div.innerHTML = `<span>${i}</span> ${word}`;
+                seedPhraseGrid.appendChild(div);
+            }
+            sessionStorage.setItem('tempPrivKey', privKeyString);
+            sessionStorage.setItem('tempPubKey', pubKey);
+        }
+
+        function toggleViewPrivKey() {
+            const input = document.getElementById('privKeyDisplay'); const icon = document.getElementById('eyeIcon');
+            if (input.type === "password") { input.type = "text"; icon.classList.replace('fa-eye', 'fa-eye-slash'); } 
+            else { input.type = "password"; icon.classList.replace('fa-eye-slash', 'fa-eye'); }
+        }
+
+        function copyPrivKey() {
+            const input = document.getElementById('privKeyDisplay');
+            if (!input.value) return showToast("Key is empty!", "error");
+            navigator.clipboard.writeText(input.value).then(() => showToast("Copied to clipboard", "success")).catch(() => showToast("Copy failed", "error"));
+        }
+
+        function downloadKeystore() {
+            const privKey = sessionStorage.getItem('tempPrivKey'); const pubKey = sessionStorage.getItem('tempPubKey');
+            if(!privKey || !pubKey) return showToast("Wallet not generated!", "error");
+            
+            const keystore = { network: "solana", publicKey: pubKey, privateKey: JSON.parse(privKey) };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(keystore, null, 2));
+            const a = document.createElement('a'); a.href = dataStr; a.download = `MySolWallet_${pubKey.slice(0,6)}.json`;
+            document.body.appendChild(a); a.click(); a.remove();
+            showToast("Keystore downloaded!", "success");
+        }
+
+        // --- IMPORT WALLET (Private Key: JSON array or Base58) ---
+        const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+        function base58Decode(str) {
+            let bytes = [0];
+            for (let i = 0; i < str.length; i++) {
+                const c = BASE58_ALPHABET.indexOf(str[i]);
+                if (c < 0) throw new Error("Invalid base58 character");
+                let carry = c;
+                for (let j = 0; j < bytes.length; j++) {
+                    carry += bytes[j] * 58;
+                    bytes[j] = carry & 0xff;
+                    carry >>= 8;
+                }
+                while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8; }
+            }
+            for (let i = 0; i < str.length && str[i] === '1'; i++) bytes.push(0);
+            return new Uint8Array(bytes.reverse());
+        }
+
+        function parsePrivateKeyInput(input) {
+            input = input.trim();
+            if (!input) return null;
+            try {
+                const arr = JSON.parse(input);
+                if (Array.isArray(arr) && arr.length > 0) return new Uint8Array(arr);
+            } catch (e) { /* not JSON, try base58 next */ }
+            try {
+                const decoded = base58Decode(input);
+                if (decoded.length === 64 || decoded.length === 32) return decoded;
+            } catch (e) { /* invalid base58 */ }
+            return null;
+        }
+
+        function importWallet() {
+            const inputEl = document.getElementById('importPrivKeyInput');
+            const statusEl = document.getElementById('importStatus');
+            const raw = inputEl.value;
+            const secretBytes = parsePrivateKeyInput(raw);
+
+            if (!secretBytes) {
+                statusEl.innerText = "Invalid private key format.";
+                statusEl.style.color = "var(--danger-color)";
+                return showToast("Invalid private key format", "error");
+            }
+
+            try {
+                let keypair;
+                if (secretBytes.length === 64) keypair = solanaWeb3.Keypair.fromSecretKey(secretBytes);
+                else if (secretBytes.length === 32) keypair = solanaWeb3.Keypair.fromSeed(secretBytes);
+                else throw new Error("Unexpected key length");
+
+                const pubKey = keypair.publicKey.toString();
+                const privKeyString = JSON.stringify(Array.from(keypair.secretKey));
+                sessionStorage.setItem('tempPrivKey', privKeyString);
+                sessionStorage.setItem('tempPubKey', pubKey);
+                pinSetupOrigin = 'step-import';
+
+                statusEl.innerText = "";
+                showToast("Wallet imported! Now set a PIN.", "success");
+                document.getElementById('pinTitle').innerText = "Create PIN";
+                document.getElementById('pinInstruction').innerText = "Create an 8-digit PIN to secure your device.";
+                goToStep('step-pin-setup');
+            } catch (err) {
+                statusEl.innerText = "Could not import this key. Please check the format.";
+                statusEl.style.color = "var(--danger-color)";
+                showToast("Invalid private key", "error");
+            }
+        }
+
+        // --- LOGIKA PIN ONBOARDING (Terpisah dari TX) ---
+        let obPin = ""; let obFirstPin = ""; let obPinStage = "create";
+        const obDots = document.querySelectorAll('.ob-dot');
+
+        function resetPinAndGoBack() {
+            obFirstPin = ""; obPinStage = "create";
+            document.getElementById('pinTitle').innerText = "Create PIN";
+            document.getElementById('pinInstruction').innerText = "Create an 8-digit PIN to secure your device.";
+            document.getElementById('pinInstruction').style.color = "var(--text-muted)";
+            document.getElementById('pinStatusIcon').innerHTML = '<i class="fa-solid fa-shield-halved lock-icon" style="font-size: 32px; color: var(--text-muted);"></i>';
+            document.getElementById('unlockActionBtn').classList.add('hidden');
+            document.getElementById('pinKeypad').style.display = "grid";
+            obPin = ""; obDots.forEach(dot => dot.classList.remove('filled'));
+            goToStep(pinSetupOrigin);
+        }
+
+        document.querySelectorAll('.key-ob').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const val = e.target.innerText; const isDel = e.target.closest('.key').innerHTML.includes('fa-delete-left');
+                if (isDel) obPin = obPin.slice(0, -1); else if (val && obPin.length < 8) obPin += val;
+                obDots.forEach((dot, i) => { if (i < obPin.length) dot.classList.add('filled'); else dot.classList.remove('filled'); });
+                if (obPin.length === 8) setTimeout(handleObPinStage, 150);
+            });
+        });
+
+        function handleObPinStage() {
+            if (obPinStage === "unlock") {
+                attemptUnlock(obPin);
+                return;
+            }
+            if (obPinStage === "create") {
+                obFirstPin = obPin; obPinStage = "confirm"; obPin = ""; obDots.forEach(dot => dot.classList.remove('filled'));
+                document.getElementById('pinTitle').innerText = "Confirm PIN";
+                document.getElementById('pinInstruction').innerText = "Please re-enter your 8-digit PIN to confirm.";
+                showToast("PIN captured, please confirm.", "info");
+            } else {
+                if (obPin === obFirstPin) {
+                    document.getElementById('pinTitle').innerText = "PIN Confirmed!";
+                    document.getElementById('pinInstruction').innerText = "Your wallet is ready to be encrypted.";
+                    document.getElementById('pinInstruction').style.color = "var(--primary-color)";
+                    document.getElementById('pinStatusIcon').innerHTML = '<i class="fa-solid fa-circle-check" style="font-size: 42px; color: var(--primary-color);"></i>';
+                    document.getElementById('pinKeypad').style.display = "none";
+                    document.getElementById('unlockActionBtn').classList.remove('hidden');
+                    showToast("PIN matched!", "success");
+                } else {
+                    showToast("PIN mismatch! Try again.", "error");
+                    obFirstPin = ""; obPinStage = "create"; obPin = ""; obDots.forEach(dot => dot.classList.remove('filled'));
+                    document.getElementById('pinTitle').innerText = "Create PIN";
+                    document.getElementById('pinInstruction').innerText = "Create an 8-digit PIN to secure your device.";
+                }
+            }
+        }
+
+        document.getElementById('confirmPinBtn').addEventListener('click', async function() {
+            this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Encrypting...'; this.disabled = true;
+            const privKey = sessionStorage.getItem('tempPrivKey'); const pubKey = sessionStorage.getItem('tempPubKey');
+            try {
+                const encryptedWallet = await CryptoService.encryptData(privKey, obFirstPin);
+                localStorage.setItem('MySolWallet_Data', encryptedWallet); localStorage.setItem('MySolWallet_PubKey', pubKey);
+                sessionStorage.removeItem('tempPrivKey');
+                showToast("Wallet Secured! Entering Dashboard...", "success");
+                
+                setTimeout(() => {
+                    document.getElementById('onboarding-flow').classList.add('hidden');
+                    document.getElementById('dashboard-flow').classList.remove('hidden');
+                    initDashboard();
+                }, 1000);
+            } catch (error) {
+                showToast("Encryption failed.", "error");
+                this.innerHTML = 'Unlock Wallet <i class="fa-solid fa-unlock-keyhole"></i>'; this.disabled = false;
+            }
+        });
+
+
+        // ----------------------------------------------------
+        // 3. DASHBOARD FUNCTIONS (View, Balance, Send)
+        // ----------------------------------------------------
+        function switchView(viewId, btnElem) {
+            document.querySelectorAll('#dashboard-flow .view-section').forEach(el => { el.classList.remove('active'); el.classList.add('hidden'); });
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            document.getElementById(`view-${viewId}`).classList.add('active');
+            if(btnElem) btnElem.classList.add('active');
+        }
+
+        function copyAddress() {
+            navigator.clipboard.writeText(currentWalletState.publicKey).then(()=>showToast("Address Copied!","success"));
+        }
+
+        async function initDashboard() {
+            const savedPubKey = localStorage.getItem('MySolWallet_PubKey');
+            if (!savedPubKey) return;
+            currentWalletState.publicKey = savedPubKey;
+            document.getElementById('shortAddress').innerText = `${savedPubKey.slice(0, 4)}...${savedPubKey.slice(-4)}`;
+            await fetchBalances(savedPubKey);
+        }
+
+        async function fetchBalances(pubKeyStr) {
+            try {
+                const pubKey = new solanaWeb3.PublicKey(pubKeyStr);
+                const lamports = await connection.getBalance(pubKey);
+                const solBalance = lamports / solanaWeb3.LAMPORTS_PER_SOL;
+                currentWalletState.balances.sol = solBalance; 
+                document.getElementById('maxSol').innerText = solBalance.toFixed(4);
+
+                const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+                const data = await res.json();
+                const totalUsd = solBalance * data.solana.usd;
+
+                document.getElementById('solBalance').innerText = `${solBalance.toFixed(4)} SOL`;
+                document.getElementById('solUsdValue').innerText = `$${totalUsd.toFixed(2)}`;
+                document.getElementById('totalUsdBalance').innerText = `$${totalUsd.toFixed(2)}`;
+            } catch (error) { console.error(error); }
+        }
+
+        // --- ALUR TRANSAKSI (MODAL & PIN KHUSUS TX) ---
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function openAssetAction(asset) { if(asset === 'SOL') openModal('modal-send'); }
+        function setMaxAmount() { document.getElementById('sendAmount').value = currentWalletState.balances.sol; }
+
+        function verifyAddress() {
+            const input = document.getElementById('sendAddress');
+            const status = document.getElementById('addressStatus');
+            const reviewBtn = document.getElementById('reviewSendBtn');
+            const addr = input.value.trim();
+
+            if (!addr) {
+                status.innerText = "";
+                reviewBtn.disabled = true;
+                return false;
+            }
+
+            try {
+                new solanaWeb3.PublicKey(addr); // throws if not a valid Solana address
+                if (addr === currentWalletState.publicKey) {
+                    status.innerText = "This is your own address";
+                    status.style.color = "#FFA500";
+                } else {
+                    status.innerText = "Valid Solana address";
+                    status.style.color = "var(--primary-color)";
+                }
+                reviewBtn.disabled = false;
+                return true;
+            } catch (err) {
+                status.innerText = "Invalid Solana address";
+                status.style.color = "var(--danger-color)";
+                reviewBtn.disabled = true;
+                return false;
+            }
+        }
+
+        function openConfirmModal() {
+            const addr = document.getElementById('sendAddress').value; const amt = document.getElementById('sendAmount').value;
+            if(!addr || !amt || amt <= 0) return showToast("Valid address & amount required", "warning");
+            document.getElementById('confirmAddress').innerText = addr; document.getElementById('confirmAmount').innerText = `${amt} SOL`;
+            closeModal('modal-send'); openModal('modal-confirm');
+        }
+
+        // --- FITUR QR CODE & RECEIVE FLOW ---
+        let qrCodeInstance = null;
+
+        function openReceiveModal() {
+            const pubKey = currentWalletState.publicKey;
+            document.getElementById('fullAddressDisplay').value = pubKey;
+            document.getElementById('requestAmount').value = '';
+            
+            // Format standar Solana Pay
+            generateQR(`solana:${pubKey}`);
+            openModal('modal-receive');
+        }
+
+        function updateReceiveQR() {
+            const pubKey = currentWalletState.publicKey;
+            const amount = document.getElementById('requestAmount').value;
+            
+            let qrText = `solana:${pubKey}`;
+            if(amount && amount > 0) qrText += `?amount=${amount}`;
+            
+            generateQR(qrText);
+        }
+
+        function generateQR(text) {
+            const container = document.getElementById('qrcode-container');
+            container.innerHTML = ""; // Bersihkan QR sebelumnya
+            
+            // Cek apakah library easy.qrcode sudah termuat
+            if (typeof QRCode === "undefined") {
+                showToast("Memuat library QR Code...", "warning");
+                return;
+            }
+
+            // Render QR Code dengan Logo Solana di tengah
+            qrCodeInstance = new QRCode(container, {
+                text: text,
+                width: 220,
+                height: 220,
+                logo: "https://cryptologos.cc/logos/solana-sol-logo.png", // Logo Solana transparan
+                logoWidth: 60,
+                logoHeight: 60,
+                logoBackgroundTransparent: true,
+                correctLevel: QRCode.CorrectLevel.H 
+            });
+        }
+
+        function downloadQR() {
+            const canvas = document.querySelector('#qrcode-container canvas');
+            if(!canvas) return showToast("QR Code belum siap", "error");
+            
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL("image/png");
+            a.download = `Solana_QR_${currentWalletState.publicKey.slice(0,6)}.png`;
+            a.click();
+            showToast("QR Downloaded successfully!", "success");
+        }
+
+        // --- FITUR SCANNER KAMERA & UPLOAD (html5-qrcode) ---
+        let html5QrCode = null;
+
+        // 1. Inisialisasi scanner & Event Listener File Upload
+        function initQRScanner() {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("qr-reader");
+            }
+
+            const qrInput = document.getElementById('qr-input-file');
+            if (qrInput) {
+                qrInput.addEventListener('change', e => {
+                    if (e.target.files.length === 0) return;
+                    
+                    const file = e.target.files[0];
+                    html5QrCode.scanFile(file, true)
+                        .then(decodedText => {
+                            handleScanSuccess(decodedText);
+                            e.target.value = ""; // Reset input file
+                        })
+                        .catch(err => {
+                            showToast("No QR code found in image", "error");
+                            e.target.value = ""; // Reset input file
+                        });
+                });
+            }
+        }
+
+        // 2. Logika Pemroses Hasil Scan (Dipakai oleh Kamera & Upload)
+        function handleScanSuccess(decodedText) {
+            let cleanAddress = decodedText;
+            
+            // Bersihkan format Solana Pay jika ada
+            if (cleanAddress.startsWith("solana:")) {
+                cleanAddress = cleanAddress.split("?")[0].replace("solana:", "");
+            }
+            
+            document.getElementById('sendAddress').value = cleanAddress;
+            verifyAddress(); // Verifikasi checksum otomatis
+            stopQRScanner(); // Matikan kamera (jika menyala)
+            showToast("QR Code recognized!", "success");
+        }
+
+        // 3. Fungsi menyalakan Kamera
+        function startQRScanner() {
+            const qrReaderEl = document.getElementById('qr-reader');
+            if (qrReaderEl) qrReaderEl.style.display = "block";
+            
+            if (!html5QrCode) initQRScanner();
+            
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                handleScanSuccess,
+                (errorMessage) => { /* Abaikan log error saat mencari barcode */ }
+            ).catch(err => {
+                showToast("Camera access denied or HTTPS required.", "error");
+                if (qrReaderEl) qrReaderEl.style.display = "none";
+            });
+        }
+
+        // 4. Fungsi mematikan Kamera
+        function stopQRScanner() {
+            const qrReaderEl = document.getElementById('qr-reader');
+            
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    if (qrReaderEl) qrReaderEl.style.display = "none";
+                }).catch(err => console.error("Failed to stop scanner", err));
+            } else {
+                if (qrReaderEl) qrReaderEl.style.display = "none";
+            }
+        }
+
+        // 5. Trigger inisialisasi awal
+        window.addEventListener('DOMContentLoaded', () => {
+            initQRScanner();
+        });
+
+        // --- Logika Keypad PIN Transaksi ---
+        let txPin = ""; const txDots = document.querySelectorAll('.tx-dot');
+        
+        function openPinModal() {
+            closeModal('modal-confirm'); openModal('modal-pin-tx');
+            txPin = ""; txDots.forEach(dot => dot.classList.remove('filled'));
+        }
+
+        document.querySelectorAll('.key-tx').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const val = e.target.innerText; const isDel = e.target.closest('.key').innerHTML.includes('fa-delete-left');
+                if (isDel) txPin = txPin.slice(0, -1); else if (val && txPin.length < 8) txPin += val;
+                txDots.forEach((dot, i) => { if (i < txPin.length) dot.classList.add('filled'); else dot.classList.remove('filled'); });
+                
+                // Jika PIN 8 Digit dimasukkan, langsung eksekusi transaksi!
+                if (txPin.length === 8) {
+                    executeTransaction(txPin);
+                    txPin = ""; txDots.forEach(dot => dot.classList.remove('filled')); // Reset background
+                }
+            });
+        });
+
+        async function executeTransaction(pin) {
+            showToast("Decrypting & Signing...", "info");
+            const dest = document.getElementById('sendAddress').value; const amt = parseFloat(document.getElementById('sendAmount').value);
+            try {
+                const encData = localStorage.getItem('MySolWallet_Data');
+                const privStr = await CryptoService.decryptData(encData, pin);
+                if (!privStr) return showToast("Incorrect PIN!", "error");
+
+                const kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(privStr)));
+                const tx = new solanaWeb3.Transaction().add(solanaWeb3.SystemProgram.transfer({
+                    fromPubkey: kp.publicKey, toPubkey: new solanaWeb3.PublicKey(dest), lamports: amt * solanaWeb3.LAMPORTS_PER_SOL
+                }));
+                
+                await solanaWeb3.sendAndConfirmTransaction(connection, tx, [kp]);
+                showToast("Transaction Success!", "success");
+                closeModal('modal-pin-tx'); fetchBalances(kp.publicKey.toString());
+                document.getElementById('sendAddress').value = ""; document.getElementById('sendAmount').value = "";
+            } catch (err) { showToast("Transaction Failed. Check balance.", "error"); }
+        }
+    </script>
+</body>
+</html>
