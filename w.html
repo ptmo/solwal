@@ -189,7 +189,7 @@
         </div>
 
         <div id="view-import" class="view p-24">
-            <div class="flex-between"><button class="btn-icon" onclick="App.UI.showView('view-welcome')"><i class="fa-solid fa-arrow-left"></i></button><h2>Import Wallet</h2><div style="width:20px;"></div></div>
+            <div class="flex-between"><button class="btn-icon" onclick="App.State.sessionKey ? App.UI.initDashboard() : App.UI.showView('view-welcome')"><i class="fa-solid fa-arrow-left"></i></button><h2>Import Wallet</h2><div style="width:20px;"></div></div>
             <p class="subtitle mt-24">Enter your 12-word mnemonic phrase or base58 private key.</p>
             <textarea id="import-input" class="input-box mt-16" rows="4" placeholder="e.g. abstract bacon cabin..." style="resize:none; font-family:monospace;"></textarea>
             
@@ -320,7 +320,7 @@
                 <div class="sheet-handle"></div>
                 <h2 style="margin-bottom:24px;">Wallets</h2>
                 <div id="wallet-list-ui" class="glass" style="overflow:hidden; margin-bottom:24px;"></div>
-                <button class="btn btn-secondary" onclick="App.Auth.lock(); App.UI.showView('view-import');"><i class="fa-solid fa-plus"></i> Import New Wallet</button>
+                <button class="btn btn-secondary" onclick="App.UI.closeSheet('sheet-wallet-select'); App.UI.showView('view-import');"><i class="fa-solid fa-plus"></i> Import New Wallet</button>
             </div>
         </div>
 
