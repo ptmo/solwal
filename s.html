@@ -932,9 +932,20 @@ document
 
 }
 
-function showCreateWallet(){
+async function showCreateWallet(){
 
 showScreen("createWalletScreen");
+
+await createWallet();
+
+}
+
+let currentWallet=null;
+
+async function createWallet(){
+
+// Engine BIP39 akan dipasang
+// pada patch berikutnya.
 
 }
 
@@ -999,5 +1010,8 @@ document.getElementById("privateKey").value=
 "Private Key will appear here...";
 
 </script>
+<script type="module" src="https://esm.sh/@scure/bip39"></script>
+<script type="module" src="https://esm.sh/@scure/bip39/wordlists/english"></script>
+<script type="module" src="https://esm.sh/@solana/kit"></script>
 </body>
 </html>
