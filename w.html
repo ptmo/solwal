@@ -7,6 +7,7 @@
     
     <!-- Core Dependencies (Versi dipin agar stabil) -->
     <script src="https://unpkg.com/@solana/web3.js@1.91.8/lib/index.iife.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://unpkg.com/easyqrcodejs@4.6.1/dist/easy.qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -451,6 +452,34 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
             
             // Core Cryptography (Web Crypto API)
             Crypto: {
+                // Logika Hashing HMAC-SHA512 Native Browser
+            async hmacSha512(key, data) {
+                const cryptoKey = await window.crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
+                const sig = await window.crypto.subtle.sign("HMAC", cryptoKey, data);
+                return new Uint8Array(sig);
+            },
+
+            // Standar Derivasi Phantom Wallet (m/44'/501'/0'/0')
+            async derivePhantomHD(seedHex) {
+                const seedBytes = new Uint8Array(seedHex.slice(2).match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+                let I = await this.hmacSha512(new TextEncoder().encode("ed25519 seed"), seedBytes);
+                let key = I.slice(0, 32);
+                let chainCode = I.slice(32);
+
+                const HARDENED = 0x80000000;
+                const segments = [44 + HARDENED, 501 + HARDENED, 0 + HARDENED, 0 + HARDENED];
+
+                for (const index of segments) {
+                    const data = new Uint8Array(37);
+                    data[0] = 0x00;
+                    data.set(key, 1);
+                    new DataView(data.buffer).setUint32(33, index, false);
+                    I = await this.hmacSha512(chainCode, data);
+                    key = I.slice(0, 32);
+                    chainCode = I.slice(32);
+                }
+                return key; // Menghasilkan 32-byte Ed25519 Seed standar Solana
+            },
                 async getEntropy() {
                     const r = new Uint8Array(16);
                     window.crypto.getRandomValues(r);
@@ -492,8 +521,7 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
             // Wallet Generation & Import
             Wallet: {
                 tempData: null,
-                wordsList: ["abstract","bacon","cabin","dad","eagle","fabric","gadget","habit","ice","jacket","kangaroo","labor","machine","narrow","oasis","pact","radar","sad","tact","vacant","wagon","yacht","zebra","above","balance","cabbage","damage","early","fable","gain","hair","icon","jail","keen","label"],
-
+                
                 // 1. Tambahkan fungsi bs58Decode ini di dalam objek App.Wallet
         bs58Decode(str) {
             const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -515,22 +543,32 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
         },
                 
                 async initCreate() {
-                    App.UI.showLoader();
-                    const entropy = await App.Crypto.getEntropy();
-                    let phrase = [];
-                    for(let i=0; i<12; i++) phrase.push(this.wordsList[entropy[i] % this.wordsList.length]);
+                App.UI.showLoader();
+                try {
+                    // 1. Generate 12 Kata Standar BIP39
+                    const wallet = ethers.Wallet.createRandom();
+                    const phrase = wallet.mnemonic.phrase;
+                    const phraseArray = phrase.split(' ');
                     
-                    const seed = await App.Crypto.pbkdf2(phrase.join(' '), "mnemonic", 2048, 64);
-                    const kp = solanaWeb3.Keypair.fromSeed(seed.slice(0, 32));
+                    // 2. Ubah ke Seed & Lewati Jalur Phantom m/44'/501'/0'/0'
+                    const seedHex = ethers.utils.mnemonicToSeed(phrase);
+                    const derivedPrivKey = await App.Crypto.derivePhantomHD(seedHex);
+                    const kp = solanaWeb3.Keypair.fromSeed(derivedPrivKey);
                     
-                    this.tempData = { phrase, priv: Array.from(kp.secretKey), pub: kp.publicKey.toString() };
+                    this.tempData = { phrase: phraseArray, priv: Array.from(kp.secretKey), pub: kp.publicKey.toString() };
                     
-                    document.getElementById('phrase-grid').innerHTML = phrase.map((w,i) => `<div class="seed-word"><span>${i+1}</span> ${w}</div>`).join('');
+                    document.getElementById('phrase-grid').innerHTML = phraseArray.map((w,i) => `<div class="seed-word"><span>${i+1}</span> ${w}</div>`).join('');
                     document.getElementById('priv-display').value = JSON.stringify(this.tempData.priv);
                     
                     App.UI.hideLoader();
                     App.UI.showView('view-create');
-                },
+                } catch(e) {
+                    console.error("Create Error:", e);
+                    App.UI.showToast("Gagal membuat dompet", "error");
+                    App.UI.hideLoader();
+                }
+            },
+
                 downloadKeystore() {
             // Hanya mengekspor array private key secara langsung (tanpa object pubkey)
             const blob = new Blob([JSON.stringify(this.tempData.priv)], {type: "application/json"});
@@ -578,39 +616,35 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
 
         // 2. Ganti fungsi processImport() yang lama dengan yang baru ini
         async processImport() {
-            const raw = document.getElementById('import-input').value.trim();
-            try {
-                let kp;
-                
-                // Format 1: JSON Array (Standar unduhan Keystore MySolWallet)
-                if (raw.startsWith('[')) {
-                    kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(raw)));
-                } 
-                // Format 2: 12/24 Word Phrase (Mnemonic)
-                else if (raw.includes(' ')) {
-                    // Hanya menggunakan hashing murni untuk lingkungan non-bundler
-                    const seed = await App.Crypto.pbkdf2(raw, "mnemonic", 2048, 64);
-                    kp = solanaWeb3.Keypair.fromSeed(seed.slice(0, 32));
-                } 
-                // Format 3: Base58 (Standar ekspor Private Key dari Phantom)
-                else {
-                    const secretBytes = this.bs58Decode(raw);
-                    if (secretBytes.length === 64) {
-                        kp = solanaWeb3.Keypair.fromSecretKey(secretBytes);
-                    } else if (secretBytes.length === 32) {
-                        kp = solanaWeb3.Keypair.fromSeed(secretBytes);
-                    } else {
-                        throw new Error("Panjang karakter Base58 tidak valid");
+                const raw = document.getElementById('import-input').value.trim();
+                try {
+                    let kp;
+                    
+                    // Format 1: JSON Array
+                    if (raw.startsWith('[')) {
+                        kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(raw)));
+                    } 
+                    // Format 2: 12/24 Word Phrase (Sekarang 100% Kompatibel dengan Phantom)
+                    else if (raw.includes(' ')) {
+                        const seedHex = ethers.utils.mnemonicToSeed(raw);
+                        const derivedPrivKey = await App.Crypto.derivePhantomHD(seedHex);
+                        kp = solanaWeb3.Keypair.fromSeed(derivedPrivKey);
+                    } 
+                    // Format 3: Base58
+                    else {
+                        const secretBytes = this.bs58Decode(raw);
+                        if (secretBytes.length === 64) kp = solanaWeb3.Keypair.fromSecretKey(secretBytes);
+                        else if (secretBytes.length === 32) kp = solanaWeb3.Keypair.fromSeed(secretBytes);
+                        else throw new Error("Base58 invalid length");
                     }
+                    
+                    this.tempData = { priv: Array.from(kp.secretKey), pub: kp.publicKey.toString() };
+                    App.Auth.initSetup('view-import');
+                    
+                } catch(e) { 
+                    console.error("Import Error:", e);
+                    App.UI.showToast("Format tidak valid. Gunakan JSON, Phrase, atau Base58.", "error"); 
                 }
-                
-                this.tempData = { priv: Array.from(kp.secretKey), pub: kp.publicKey.toString() };
-                App.Auth.initSetup('view-import');
-                
-            } catch(e) { 
-                console.error("Import Error:", e);
-                App.UI.showToast("Format tidak valid. Gunakan JSON, Phrase, atau Base58.", "error"); 
-            }
         }
             },
 
