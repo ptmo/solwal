@@ -159,7 +159,7 @@
                     <p id="pinInstruction" class="subtitle">Enter 6-digit PIN</p>
                     <div class="pin-display mt-20" id="pinDotsWrapper">
                         <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
-                        <div class=\"pin-dot\"></div><div class=\"pin-dot\"></div><div class=\"pin-dot\"></div>
+                        <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
                     </div>
                 </div>
                 <div class="keypad">
@@ -308,9 +308,28 @@
         let connection = new solanaWeb3.Connection(RPC_ENDPOINTS[activeNetwork], 'confirmed');
         let currentPubKey = null; 
         
-        // Jupiter API for Token Metadata (Massive list of trusted SPL Tokens)
+        // Jupiter API for Token Metadata
         const TOKEN_LIST_URL = "https://token.jup.ag/strict";
         let tokenMap = new Map();
+
+        /* --- UTILITY: Base58 Decoder (Bug Fix) --- */
+        const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+        function base58ToUint8(str) {
+            let bytes = [0];
+            for (let i = 0; i < str.length; i++) {
+                const c = BASE58_ALPHABET.indexOf(str[i]);
+                if (c < 0) throw new Error("Invalid base58 character");
+                let carry = c;
+                for (let j = 0; j < bytes.length; j++) {
+                    carry += bytes[j] * 58;
+                    bytes[j] = carry & 0xff;
+                    carry >>= 8;
+                }
+                while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8; }
+            }
+            for (let i = 0; i < str.length && str[i] === '1'; i++) bytes.push(0);
+            return new Uint8Array(bytes.reverse());
+        }
 
         /* --- UI & TOAST --- */
         const ui = {
@@ -368,7 +387,7 @@
                     return new TextDecoder().decode(dec);
                 } catch { return null; }
             },
-            wipeWallet() { if(confirm("PERMANENTLY DELETE WALLET?")) { localStorage.clear(); location.reload(); } }
+            wipeWallet() { if(confirm("This will permanently delete your wallet data from this device. Make sure you have backed up your private key. Continue?")) { localStorage.clear(); location.reload(); } }
         };
 
         /* --- ONBOARDING & PIN LOGIC --- */
@@ -378,10 +397,24 @@
 
         function updateDots(val, dots) { dots.forEach((d,i)=> d.classList.toggle('filled', i<val.length)); }
         
-        // Flow Control
+        // Flow Control (Bug Fix: Added the .active class back to the target screen)
         function goToStep(id) {
-            document.querySelectorAll('#onboarding-flow .screen').forEach(el=>el.classList.remove('active', 'hidden'));
-            document.querySelectorAll('#onboarding-flow .screen:not(#'+id+')').forEach(el=>el.classList.add('hidden'));
+            // Hilangkan status aktif dari semua screen
+            document.querySelectorAll('#onboarding-flow .screen').forEach(el => {
+                el.classList.remove('active', 'hidden');
+            });
+            // Sembunyikan yang bukan tujuan
+            document.querySelectorAll('#onboarding-flow .screen:not(#'+id+')').forEach(el => {
+                el.classList.add('hidden');
+            });
+            
+            // Aktifkan layar tujuan agar tidak blank
+            const targetScreen = document.getElementById(id);
+            if (targetScreen) {
+                setTimeout(() => targetScreen.classList.add('active'), 50);
+            }
+
+            // Jika masuk ke langkah Create, buat Keypair baru
             if(id === 'step-create') {
                 const kp = solanaWeb3.Keypair.generate();
                 sessionStorage.setItem('tmpPub', kp.publicKey.toString());
@@ -391,12 +424,21 @@
             }
         }
 
+        // Bug Fix: Missing back handler for PIN screen
+        function handlePinBack() {
+            if (pinState === "unlock") {
+                security.wipeWallet(); // Jika lupa PIN saat Unlock, opsi satu-satunya adalah Wipe
+            } else {
+                goToStep('step-welcome'); // Jika baru setup, bisa kembali
+            }
+        }
+
         function processImport() {
             const raw = document.getElementById('importInput').value.trim();
             try {
                 let kp;
                 if(raw.startsWith('[')) kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(raw)));
-                else kp = solanaWeb3.Keypair.fromSecretKey(base58ToUint8(raw)); // Requires bs58, simplified here for demo
+                else kp = solanaWeb3.Keypair.fromSecretKey(base58ToUint8(raw)); 
                 
                 sessionStorage.setItem('tmpPub', kp.publicKey.toString());
                 sessionStorage.setItem('tmpPriv', JSON.stringify(Array.from(kp.secretKey)));
@@ -493,7 +535,7 @@
                     const cgData = await cgRes.json();
                     const solPrice = cgData.solana[currency.toLowerCase()];
                     
-                    this.balances.totalUsd = this.balances.sol * solPrice; // Simplified (excluding SPL token fiat value for API limits)
+                    this.balances.totalUsd = this.balances.sol * solPrice; // Simplified
 
                     this.renderPortfolio(solPrice);
                 } catch(e) { console.error(e); ui.toast("RPC Error. Retrying...", "error"); }
@@ -625,7 +667,6 @@
             if(el.type === 'password') { el.type = 'text'; ic.classList.replace('fa-eye','fa-eye-slash'); }
             else { el.type = 'password'; ic.classList.replace('fa-eye-slash','fa-eye'); }
         }
-        function lockSession() { location.reload(); }
 
         // INIT APP
         window.onload = () => {
