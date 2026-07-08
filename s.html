@@ -8,6 +8,7 @@
     <!-- Solana Web3 & Icons -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/easyqrcodejs@4.6.1/dist/easy.qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     
@@ -372,18 +373,25 @@
             <div id="modal-send" class="modal-overlay hidden">
                 <div class="modal-content slide-up full-height">
                     <div class="header-nav">
-                        <button class="btn-icon" onclick="closeModal('modal-send')"><i class="fa-solid fa-xmark"></i></button>
+                        <button class="btn-icon" onclick="closeModal('modal-send'); stopQRScanner();"><i class="fa-solid fa-xmark"></i></button>
                         <h2>Send SOL</h2>
                         <div style="width: 24px;"></div>
                     </div>
-                    <div class="padding-24">
-                        <label>Recipient Address (Solana)</label>
-                        <div class="d-flex gap-10 mt-10">
-                            <input type="text" id="sendAddress" placeholder="Paste Solana Address" class="premium-input" oninput="verifyAddress()">
-                            <button class="btn-icon" style="background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0 16px;" onclick="showToast('Camera scanner needs HTTPS & permission', 'info')">
-                                <i class="fa-solid fa-qrcode"></i>
-                            </button>
-                        </div>
+                    
+                    <div id="qr-reader" style="width: 100%; display: none; background: #000;"></div>
+
+                    <div class="d-flex gap-10 mt-10">
+    <input type="text" id="sendAddress" placeholder="Paste Solana Address" class="premium-input" oninput="verifyAddress()">
+    
+    <button class="btn-icon" style="background: var(--surface-color); border: 1px solid var(--border-color); padding: 0 16px;" onclick="startQRScanner()">
+        <i class="fa-solid fa-qrcode"></i>
+    </button>
+    
+    <button class="btn-icon" style="background: var(--surface-color); border: 1px solid var(--border-color); padding: 0 16px;" onclick="document.getElementById('qr-input-file').click()">
+        <i class="fa-solid fa-image"></i>
+    </button>
+    <input type="file" id="qr-input-file" accept="image/*" style="display:none">
+                    </div>
                         <p id="addressStatus" style="font-size: 12px; margin-top: 8px; color: var(--text-muted);"></p>
                         
                         <div class="amount-header mt-20">
@@ -697,82 +705,84 @@
             closeModal('modal-send'); openModal('modal-confirm');
         }
 
-        // --- FITUR QR CODE & RECEIVE FLOW ---
-        let qrCodeInstance = null;
+        // --- FITUR SCANNER KAMERA & UPLOAD (html5-qrcode) ---
+        let html5QrCode = null;
 
-        function openReceiveModal() {
-            const pubKey = currentWalletState.publicKey;
-            document.getElementById('fullAddressDisplay').value = pubKey;
-            document.getElementById('requestAmount').value = '';
-            
-            // Format standar Solana Pay
-            generateQR(`solana:${pubKey}`);
-            openModal('modal-receive');
+        // 1. Inisialisasi scanner & Event Listener File Upload
+        function initQRScanner() {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("qr-reader");
+            }
+
+            const qrInput = document.getElementById('qr-input-file');
+            if (qrInput) {
+                qrInput.addEventListener('change', e => {
+                    if (e.target.files.length === 0) return;
+                    
+                    const file = e.target.files[0];
+                    html5QrCode.scanFile(file, true)
+                        .then(decodedText => {
+                            handleScanSuccess(decodedText);
+                            e.target.value = ""; // Reset input file
+                        })
+                        .catch(err => {
+                            showToast("No QR code found in image", "error");
+                            e.target.value = ""; // Reset input file
+                        });
+                });
+            }
         }
 
-        function updateReceiveQR() {
-            const pubKey = currentWalletState.publicKey;
-            const amount = document.getElementById('requestAmount').value;
+        // 2. Logika Pemroses Hasil Scan (Dipakai oleh Kamera & Upload)
+        function handleScanSuccess(decodedText) {
+            let cleanAddress = decodedText;
             
-            let qrText = `solana:${pubKey}`;
-            if(amount && amount > 0) qrText += `?amount=${amount}`;
+            // Bersihkan format Solana Pay jika ada
+            if (cleanAddress.startsWith("solana:")) {
+                cleanAddress = cleanAddress.split("?")[0].replace("solana:", "");
+            }
             
-            generateQR(qrText);
+            document.getElementById('sendAddress').value = cleanAddress;
+            verifyAddress(); // Verifikasi checksum otomatis
+            stopQRScanner(); // Matikan kamera (jika menyala)
+            showToast("QR Code recognized!", "success");
         }
 
-        function generateQR(text) {
-            const container = document.getElementById('qrcode-container');
-            container.innerHTML = ""; // Bersihkan QR sebelumnya
+        // 3. Fungsi menyalakan Kamera
+        function startQRScanner() {
+            const qrReaderEl = document.getElementById('qr-reader');
+            if (qrReaderEl) qrReaderEl.style.display = "block";
             
-            // Render QR Code dengan Logo Solana di tengah
-            qrCodeInstance = new QRCode(container, {
-                text: text,
-                width: 220,
-                height: 220,
-                logo: "https://cryptologos.cc/logos/solana-sol-logo.png", // Logo Solana transparan
-                logoWidth: 60,
-                logoHeight: 60,
-                logoBackgroundTransparent: true,
-                correctLevel: QRCode.CorrectLevel.H // Level H wajib jika pakai Logo
+            if (!html5QrCode) initQRScanner();
+            
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                handleScanSuccess,
+                (errorMessage) => { /* Abaikan log error saat mencari barcode */ }
+            ).catch(err => {
+                showToast("Camera access denied or HTTPS required.", "error");
+                if (qrReaderEl) qrReaderEl.style.display = "none";
             });
         }
 
-        function downloadQR() {
-            const canvas = document.querySelector('#qrcode-container canvas');
-            if(!canvas) return showToast("QR Code not ready", "error");
+        // 4. Fungsi mematikan Kamera
+        function stopQRScanner() {
+            const qrReaderEl = document.getElementById('qr-reader');
             
-            const a = document.createElement('a');
-            a.href = canvas.toDataURL("image/png");
-            a.download = `Solana_QR_${currentWalletState.publicKey.slice(0,6)}.png`;
-            a.click();
-            showToast("QR Downloaded successfully!", "success");
-        }
-
-        // --- FITUR SEND & CHECKSUM VERIFICATION ---
-        function verifyAddress() {
-            const addrInput = document.getElementById('sendAddress').value;
-            const statusEl = document.getElementById('addressStatus');
-            const reviewBtn = document.getElementById('reviewSendBtn');
-
-            if(addrInput.length === 0) {
-                statusEl.innerText = "";
-                reviewBtn.disabled = true;
-                return;
-            }
-
-            try {
-                // Validasi Checksum Native Solana Web3
-                new solanaWeb3.PublicKey(addrInput);
-                
-                statusEl.innerHTML = "<i class='fa-solid fa-circle-check'></i> Valid Solana Address";
-                statusEl.style.color = "var(--primary-color)";
-                reviewBtn.disabled = false;
-            } catch (error) {
-                statusEl.innerHTML = "<i class='fa-solid fa-circle-xmark'></i> Invalid Solana Address";
-                statusEl.style.color = "var(--danger-color)";
-                reviewBtn.disabled = true;
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    if (qrReaderEl) qrReaderEl.style.display = "none";
+                }).catch(err => console.error("Failed to stop scanner", err));
+            } else {
+                if (qrReaderEl) qrReaderEl.style.display = "none";
             }
         }
+
+        // 5. Trigger inisialisasi awal
+        window.addEventListener('DOMContentLoaded', () => {
+            initQRScanner();
+        });
 
         // --- Logika Keypad PIN Transaksi ---
         let txPin = ""; const txDots = document.querySelectorAll('.tx-dot');
