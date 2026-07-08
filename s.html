@@ -215,6 +215,93 @@ display:none!important;
 
   .screen{
 
+position:absolute;
+
+inset:0;
+
+padding:22px;
+
+background:transparent;
+
+opacity:0;
+
+visibility:hidden;
+
+transform:translateX(25px);
+
+transition:
+opacity .35s,
+transform .35s,
+visibility .35s;
+
+}
+
+.screen.active{
+
+opacity:1;
+
+visibility:visible;
+
+transform:none;
+
+z-index:5;
+
+}
+
+.page{
+
+display:flex;
+
+flex-direction:column;
+
+gap:22px;
+
+padding-top:12px;
+
+}
+
+.page-title{
+
+font-size:30px;
+
+font-weight:800;
+
+}
+
+.page-subtitle{
+
+color:var(--text2);
+
+line-height:1.7;
+
+}
+
+.back-btn{
+
+width:46px;
+
+height:46px;
+
+border-radius:50%;
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+background:var(--glass);
+
+border:1px solid var(--border);
+
+font-size:18px;
+
+color:var(--text);
+
+}
+
+  .screen{
+
 width:100%;
 
 min-height:100vh;
@@ -450,7 +537,7 @@ transform:none;
 
     <section
         id="welcomeScreen"
-        class="screen hidden">
+        class="screen">
 
         <div class="hero glass">
 
@@ -511,6 +598,76 @@ transform:none;
         </div>
 
     </section>
+
+    <section
+id="createWalletScreen"
+class="screen">
+
+<div class="page">
+
+<button
+class="back-btn"
+onclick="showScreen('welcomeScreen')">
+
+<i class="fa-solid fa-arrow-left"></i>
+
+</button>
+
+<h2 class="page-title">
+
+Create Wallet
+
+</h2>
+
+<p class="page-subtitle">
+
+Generate a brand new
+Solana wallet securely.
+
+</p>
+
+<div
+id="mnemonicCard"
+class="glass">
+
+Coming Soon
+
+</div>
+
+</div>
+
+    </section>
+
+    <section
+id="importWalletScreen"
+class="screen">
+
+<div class="page">
+
+<button
+class="back-btn"
+onclick="showScreen('welcomeScreen')">
+
+<i class="fa-solid fa-arrow-left"></i>
+
+</button>
+
+<h2 class="page-title">
+
+Import Wallet
+
+</h2>
+
+<p class="page-subtitle">
+
+Import using Recovery Phrase,
+Private Key or JSON.
+
+</p>
+
+</div>
+
+    </section>
   </div>
     <script>
 
@@ -520,9 +677,7 @@ document
 .getElementById("splashScreen")
 .classList.add("hidden");
 
-document
-.getElementById("welcomeScreen")
-.classList.remove("hidden");
+showScreen("welcomeScreen");
 
 },1800);
 
@@ -542,15 +697,35 @@ showImportWallet();
 
 };
 
+function showScreen(id){
+
+document
+
+.querySelectorAll(".screen")
+
+.forEach(screen=>{
+
+screen.classList.remove("active");
+
+});
+
+document
+
+.getElementById(id)
+
+.classList.add("active");
+
+}
+
 function showCreateWallet(){
 
-// akan kita isi pada Part berikutnya
+showScreen("createWalletScreen");
 
 }
 
 function showImportWallet(){
 
-// akan kita isi pada Part berikutnya
+showScreen("importWalletScreen");
 
 }
 
