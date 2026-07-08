@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MySolWallet | Premium Web3 Wallet</title>
-    
+    <meta name="theme-color" content="#14F195">
     <!-- Solana Web3 & Icons -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/easyqrcodejs@4.6.1/dist/easy.qrcode.min.js"></script>
@@ -16,27 +16,63 @@
         /* =======================================================
            ROOT VARIABLES & GLOBAL STYLES
            ======================================================= */
-        :root {
-            --bg-color: #0B0E14; 
-            --surface-color: #151A22; 
-            --surface-light: #202630;
-            --primary-color: #14F195; 
-            --primary-hover: #10c57a;
-            --secondary-color: #9945FF; 
-            --text-main: #FFFFFF;
-            --text-muted: #8E9BAE;
-            --border-color: rgba(255, 255, 255, 0.08);
-            --danger-color: #FF4949;
-            --font-main: 'Inter', sans-serif;
-            --radius-lg: 16px;
-            --radius-md: 12px;
-        }
+        :root{
+
+    color-scheme:light;
+    --primary:#14F195;
+    --primary-dark:#0FD985;
+    --secondary:#9945FF;
+    --bg:#F5F8FC;
+    --surface:#FFFFFF;
+    --glass:rgba(255,255,255,.72);
+    --text:#111827;
+    --text2:#667085;
+    --border:rgba(15,23,42,.08);
+    --danger:#EF4444;
+    --success:#16A34A;
+    --warning:#F59E0B;
+    --radius:22px;
+    --blur:20px;
+    --shadow:
+        0 12px 45px rgba(15,23,42,.10);
+    --speed:.28s cubic-bezier(.22,.61,.36,1);
+
+}
+
+        [data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#090B11;
+    --surface:#121722;
+    --glass:rgba(18,23,34,.72);
+    --text:#F8FAFC;
+    --text2:#94A3B8;
+    --border:rgba(255,255,255,.08);
+    --shadow:
+        0 20px 60px rgba(0,0,0,.45);
+
+}
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-main); }
-        body {
-            background-color: #000; display: flex; justify-content: center; align-items: center;
-            height: 100vh; height: 100dvh; color: var(--text-main); overflow: hidden;
-        }
+        body{
+    font-family:'Inter',sans-serif;
+    background:
+    radial-gradient(circle at top left,#9945ff22,transparent 30%),
+    radial-gradient(circle at top right,#14f19522,transparent 35%),
+    var(--bg);
+    color:var(--text);
+    transition:.30s;
+    overflow-x:hidden;
+
+}
+
+        .glass{
+    background:var(--glass);
+    backdrop-filter:blur(var(--blur));
+    -webkit-backdrop-filter:blur(var(--blur));
+    border:1px solid var(--border);
+    box-shadow:var(--shadow);
+
+}
 
         /* =======================================================
            TOAST NOTIFICATION (Glassmorphism)
@@ -303,6 +339,7 @@
                 <div class="nav-actions">
                     <button class="btn-icon" onclick="showToast('Language Switcher','info')"><i class="fa-solid fa-globe"></i></button>
                     <button class="btn-icon" onclick="showToast('No new notifications','info')"><i class="fa-solid fa-bell"></i></button>
+                    <button class="glass icon-btn" onclick="toggleTheme()"><i class="fa-solid fa-circle-half-stroke"></i></button>
                     <button class="btn-icon" onclick="lockSession()"><i class="fa-solid fa-right-from-bracket text-danger"></i></button>
                 </div>
             </div>
@@ -1108,6 +1145,34 @@
                 document.getElementById('sendAddress').value = ""; document.getElementById('sendAmount').value = "";
             } catch (err) { showToast("Transaction Failed. Check balance.", "error"); }
         }
+
+        const THEME_KEY="mysol-theme";
+
+(function(){
+
+const saved=localStorage.getItem(THEME_KEY)||"light";
+
+document.documentElement.setAttribute(
+"data-theme",
+saved
+);
+
+})();
+
+function toggleTheme(){
+
+const next=document.documentElement
+.getAttribute("data-theme")==="dark"
+?"light":"dark";
+
+document.documentElement.setAttribute(
+"data-theme",
+next
+);
+
+localStorage.setItem(THEME_KEY,next);
+
+}
     </script>
 </body>
 </html>
