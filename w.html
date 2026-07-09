@@ -806,48 +806,32 @@
                     try { new solanaWeb3.PublicKey(t); s.innerText="Valid Solana Address"; s.style.color="var(--success)"; b.disabled=false; }
                     catch(e) { s.innerText="Invalid Address Checksum"; s.style.color="var(--danger)"; b.disabled=true; }
                 },
-                // 1. TAMBAHKAN FUNGSI BARU INI: Mesin Pencari Token Anti-Blokir
+                
+                // 1. Pencari Token Murni DexScreener (Cepat & Anti-Adblock)
                 async getTokenData(mint) {
                     let data = { symbol: 'SPL', name: 'Unknown Token', logo: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png', price: 0 };
                     
-                    // A. Coba jalur utama (Jupiter API)
                     try {
-                        const metaRes = await fetch(`https://tokens.jup.ag/token/${mint}`);
-                        if (metaRes.ok) {
-                            const meta = await metaRes.json();
-                            if (meta.symbol) data.symbol = meta.symbol;
-                            if (meta.name) data.name = meta.name;
-                            if (meta.logoURI) data.logo = meta.logoURI;
-                        }
-                        const priceRes = await fetch(`https://price.jup.ag/v6/price?ids=${mint}`);
-                        if (priceRes.ok) {
-                            const priceData = await priceRes.json();
-                            if (priceData.data[mint]) data.price = priceData.data[mint].price;
-                        }
-                        if (data.name !== 'Unknown Token') return data; // Jika sukses, langsung selesai
-                    } catch (e) {
-                        console.warn("Jupiter API diblokir DNS. Mengalihkan ke DexScreener...");
-                    }
-
-                    // B. Jalur Cadangan (DexScreener API) jika Jupiter tumbang/diblokir
-                    try {
-                        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
-                        if (dexRes.ok) {
-                            const dexData = await dexRes.json();
+                        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
+                        if (res.ok) {
+                            const dexData = await res.json();
                             if (dexData.pairs && dexData.pairs.length > 0) {
                                 const pair = dexData.pairs[0];
-                                data.symbol = pair.baseToken.symbol;
-                                data.name = pair.baseToken.name;
+                                if (pair.baseToken) {
+                                    data.symbol = pair.baseToken.symbol || 'SPL';
+                                    data.name = pair.baseToken.name || 'Unknown Token';
+                                }
                                 data.price = parseFloat(pair.priceUsd || 0);
                                 if (pair.info && pair.info.imageUrl) data.logo = pair.info.imageUrl;
                             }
                         }
-                    } catch (e) { console.warn("DexScreener juga gagal terhubung."); }
-                    
+                    } catch (e) {
+                        console.error("DexScreener gagal:", e);
+                    }
                     return data;
                 },
 
-                // 2. GANTI FUNGSI fetchSplBalances LAMA ANDA DENGAN INI
+                // 2. Pengambil Saldo SPL (Bersih dari duplikasi Jupiter)
                 async fetchSplBalances() {
                     const conn = this.getConnection();
                     const pub = new solanaWeb3.PublicKey(App.State.pubkey);
@@ -869,7 +853,6 @@
                             const balance = accountsMap[mint] || 0;
                             if (balance === 0 && !App.State.customTokens.includes(mint)) continue;
 
-                            // Gunakan fungsi pintar yang baru kita buat
                             const tokenData = await this.getTokenData(mint);
 
                             splList.push({
@@ -886,7 +869,7 @@
                     } catch (e) { console.error("Gagal mengambil saldo SPL", e); }
                 },
 
-                // 3. GANTI FUNGSI importToken LAMA ANDA DENGAN INI
+                // 3. Fungsi Import
                 async importToken() {
                     const isId = App.State.lang === 'ID';
                     const inputEl = document.getElementById('importSplMintInput') || document.getElementById('import-mint-input');
@@ -906,7 +889,6 @@
 
                     btn.innerHTML = '<div class="loader"></div>';
                     try {
-                        // Gunakan fungsi pintar penarik metadata anti-blokir
                         const tokenData = await this.getTokenData(mintAddr);
                         
                         App.State.customTokens.push(mintAddr);
@@ -932,61 +914,9 @@
                     }
                 },
 
-    async fetchSplBalances() {
-        const conn = this.getConnection();
-        const pub = new solanaWeb3.PublicKey(App.State.pubkey);
-        const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-        
-        try {
-            const response = await conn.getParsedTokenAccountsByOwner(pub, { programId: TOKEN_PROGRAM_ID });
-            let splList = [];
-            const accountsMap = {};
-            
-            // Map token yang dimiliki di jaringan
-            response.value.forEach(acc => {
-                const info = acc.account.data.parsed.info;
-                accountsMap[info.mint] = info.tokenAmount.uiAmount;
-            });
-
-            // Gabungkan token yang terdeteksi dengan token hasil import
-            const allMints = [...new Set([...Object.keys(accountsMap), ...App.State.customTokens])];
-
-            for (const mint of allMints) {
-                const balance = accountsMap[mint] || 0;
-                
-                // Lewati jika saldo 0 dan bukan token yang di-import manual
-                if (balance === 0 && !App.State.customTokens.includes(mint)) continue;
-
-                // Fallback Metadata (Jika token tidak ada di registry)
-                let meta = { symbol: 'SPL', name: 'Unknown Token', logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png' };
-                
-                try {
-                    const metaRes = await fetch(`https://tokens.jup.ag/token/${mint}`);
-                    if (metaRes.ok) { const data = await metaRes.json(); if(data) meta = data; }
-                } catch(e) {}
-
-                // Ambil harga real-time via Jupiter V6
-                let priceUsd = 0;
-                try {
-                    const priceRes = await fetch(`https://price.jup.ag/v6/price?ids=${mint}`);
-                    if (priceRes.ok) {
-                        const priceData = await priceRes.json();
-                        if(priceData.data[mint]) priceUsd = priceData.data[mint].price;
-                    }
-                } catch(e) {}
-
-                splList.push({
-                    mint: mint, balance: balance, usdValue: balance * priceUsd, price: priceUsd,
-                    symbol: meta.symbol || 'SPL', name: meta.name || 'Unknown Token', logo: meta.logoURI
-                });
-            }
-            
-            App.State.balances.spl = splList;
-        } catch (e) {
-            console.error("Gagal mengambil saldo SPL", e);
-        }
-    },
+                // 4. Utilitas Transaksi
                 setMax() { document.getElementById('tx-amount').value = App.State.balances.sol; },
+                
                 async simulateTx() {
                     const to = document.getElementById('tx-to').value.trim();
                     const amt = parseFloat(document.getElementById('tx-amount').value);
@@ -1014,6 +944,7 @@
                     } catch(e) { App.UI.showToast("Simulation Failed. Check balance.", "error"); }
                     finally { document.getElementById('btn-review').innerHTML = 'Review Send <i class="fa-solid fa-arrow-right"></i>'; }
                 },
+                
                 async executeTx(privStr) {
                     App.UI.showToast("Transmitting to Mainnet...", "info");
                     try {
@@ -1021,7 +952,7 @@
                         const conn = this.getConnection();
                         const sig = await solanaWeb3.sendAndConfirmTransaction(conn, App.State.tempTx.tx, [kp]);
                         App.UI.showToast("Tx Success! " + sig.slice(0,8));
-                        App.State.tempTx = null;
+                        App.State.tempTx = null; // Typo terpotong sudah diperbaiki di sini
                         this.fetchDashboard();
                     } catch(e) { App.UI.showToast("Transaction Failed", "error"); }
                     finally { App.UI.hideLoader(); }
