@@ -943,7 +943,7 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                 // Receive Flow & QR
                 generateQR() {
                     const c = document.getElementById('qr-container'); 
-                    if (!c) return; // Prevent error if DOM is not ready
+                    if (!c) return; 
                     c.innerHTML = '';
                     const a = document.getElementById('rx-amount').value;
                     let txt = `solana:${App.State.pubkey}`; 
@@ -953,12 +953,12 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                         text: txt, 
                         width: 220, 
                         height: 220, 
-                        // Menggunakan logo PNG resmi Solana dari GitHub (Bebas CORS & Kompatibel dengan Canvas)
                         logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
                         crossOrigin: "anonymous", 
-                        logoWidth: 50,
-                        logoHeight: 50,
-                        logoBackgroundTransparent: true,
+                        logoWidth: 40, // Diperkecil sedikit agar aman
+                        logoHeight: 40,
+                        logoBackgroundColor: '#ffffff', // Paksa background putih agar kontras dengan barcode
+                        logoBackgroundTransparent: false, // Matikan transparan agar bingkai putihnya aktif
                         correctLevel: QRCode.CorrectLevel.H 
                     });
                 },
