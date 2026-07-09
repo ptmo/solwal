@@ -943,24 +943,45 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                 // Receive Flow & QR
                 generateQR() {
                     const c = document.getElementById('qr-container'); 
-                    if (!c) return; 
+                    if (!c) return; // Prevent error if DOM is not ready
                     c.innerHTML = '';
                     const a = document.getElementById('rx-amount').value;
                     let txt = `solana:${App.State.pubkey}`; 
                     if(a && a > 0) txt += `?amount=${a}`;
                     
+                    // 1. Buat QR murni tanpa config logo bawaan (Ini terbukti valid 100% di tes Anda)
                     new QRCode(c, { 
                         text: txt, 
                         width: 220, 
                         height: 220, 
-                        logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
-                        crossOrigin: "anonymous", 
-                        logoWidth: 40, // Diperkecil sedikit agar aman
-                        logoHeight: 40,
-                        logoBackgroundColor: '#ffffff', // Paksa background putih agar kontras dengan barcode
-                        logoBackgroundTransparent: false, // Matikan transparan agar bingkai putihnya aktif
                         correctLevel: QRCode.CorrectLevel.H 
                     });
+
+                    // 2. Replikasi trik "CONTOH" secara otomatis dengan menimpa canvas
+                    setTimeout(() => {
+                        const canvas = c.querySelector('canvas');
+                        if (!canvas) return;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Ukuran area potong di tengah & ukuran logo
+                        const boxSize = 60;
+                        const logoSize = 46;
+                        const centerX = canvas.width / 2;
+                        const centerY = canvas.height / 2;
+
+                        // A. Buat blok putih solid agar scanner tahu ini area yang dihapus (Seperti blok abu-abu Anda)
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(centerX - (boxSize/2), centerY - (boxSize/2), boxSize, boxSize);
+
+                        // B. Gambar logo Solana di atas blok putih tersebut
+                        const img = new Image();
+                        img.onload = () => {
+                            ctx.drawImage(img, centerX - (logoSize/2), centerY - (logoSize/2), logoSize, logoSize);
+                        };
+                        
+                        // Menggunakan gambar Base64 murni agar anti-error, tidak butuh internet tambahan, dan aman didownload
+                        img.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAFa0lEQVR42u2dTWgUZxiG30xC1WJ/ILQihVI0eOkhWBRKQWlP1R4sWPBQhUJbKnjxUEHxoqDQgwcPgoLQQw8KigcR9FIQ1IoiVChSLB4sHiz+QI2a3e9jZzKz2WTG2WQ3yfs88M1mNrvzvO/OfO/M7EyYMAzDMAzDMAzDMAzDMEw36m052Y9uDOJbHMRePMEjfIG9eIh96MNb6G1V7rXlW+jFWZzDORzCDnyL9/AJXkdvq3D/j76hI724hW70Y2fHch/AOTzAe1iBvlbgHsROXMVu/Io+dGLYx8/wT1v2Hn0s26w76MI1bMFK5Hw17uIrtmQvS5c1hEexFmOQszO4iWfRi82oYw2B0+zCSuQ8x54B/II+PMEarMVp9GMsxI9jL25iP1YgZ+dxFVvwDP9hE25gH/pwByvQh2PYiUvYhrVIu848QZ1yJvE4tmEL7mMF0q4Lz3E72a8q61zG7A74N/bC0/V9Aun0jW8j51iS8Z6q1210lR2E79B6jH1Y1aZ1b+Iq3kc5/X6R/K7Qv2kcwNuoIucyEa3x451h73sZfTge+Nld2IU1mI1BfIZT6Mda7Md1fIgqck7r7/S88y8ewiT8G4uL3/E6luIEzmEz2hH1+wQv4T7eRBU576MfH+FhZ19/BOfwDlY1/Z3f8CjcxQfIuT2QeJ+jP0v2N/81/l3v3/0yvBq9zX1p3g4/57a3eZp/jR/h/B59qGL5s7/G1Xj9ZfwKz+sRVK3yZ3+NW/A6/2E1eqtW/uyvcS1eD7+93kMVKpX9Na7B6y/jK1ShUtpf4xq8/jI+RRUqlf01rsHrL+NDVKFS2V/jErz+hX1T3A97VvLzX3Qo/Z1O1uP1cBzfI2c1XlR/VvYfNqgT8TqcxNfIOYyX2H/a6P4Y/tN6PB+xT10n4iWq/8s11v2zEv3/bHw2w0p2/wX7/h/H/a5c989K1v2Lcf/Pcf8r1f2zknX/Ytz/c9z/SnX/rGTdvxj3/xz3v1LdPyun3X8M/ZqI11Bv61kXg/bA3T8v2Y/XY9e2A+/jJeT81o5n/1b+jdfD2t0vI2d0fJvG/tPG90fgJazGDOQ8n+7Z+3o8/0d2G/EaWzCIfpyN3w+cxP2w9+h98S+sQ94rV020bS2u4Qfsw0aMw2dYi2F4e5Qz8n704yL2xK/rTjy4z+o/Z031uLbgA1zB9/gM1/AQy7EYa/AU23Ac5/AJ9mI1lqCKM7hR2k/p7sJj2Ifv0IPN6MPb2IoDuIFd6MEsrMEInuAmzmIfVqKCMziJ5bgX11t9K0wYhmEYhmEYhmEYhmGYdhn/A2vQ4T0I/mH/AAAAAElFTkSuQmCC";
+                    }, 50);
                 },
                 downloadQR() {
                     const cvs = document.querySelector('#qr-container canvas');
