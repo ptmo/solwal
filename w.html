@@ -437,11 +437,11 @@
                 
                 customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                 
-                // Daftar RPC Publik Baru yang Stabil & Bebas CORS
+                // Daftar RPC Alternatif untuk mencoba menembus blokir github.io
                 rpcs: [
-                    "https://rpc.ankr.com/solana", // Ankr Public (Sangat handal untuk DApps)
-                    "https://solana-rpc.publicnode.com", // PublicNode (Alternatif kuat)
-                    "https://api.mainnet-beta.solana.com" // Native (Tetap disimpan sebagai benteng terakhir)
+                    "https://solana-rpc.cmpnode.com",
+                    "https://free.rpcpool.com",
+                    "https://api.mainnet-beta.solana.com"
                 ],
                 activeRpcIndex: 0,
                 conn: null, 
@@ -808,41 +808,62 @@
                     catch(e) { s.innerText="Invalid Address Checksum"; s.style.color="var(--danger)"; b.disabled=true; }
                 },
                 async importToken() {
-        const mintAddr = document.getElementById('import-mint-input').value.trim();
-        const statusEl = document.getElementById('import-status');
-        const btn = document.getElementById('btn-import-token');
-        
-        if (!mintAddr) { statusEl.innerText = "Masukkan address mint."; return; }
-        
-        try { new solanaWeb3.PublicKey(mintAddr); } 
-        catch (e) { statusEl.innerText = "Alamat Solana tidak valid."; return; }
-        
-        if (App.State.customTokens.includes(mintAddr)) {
-            statusEl.innerText = "Token sudah ada di daftar Anda."; return;
-        }
+                    const isId = App.State.lang === 'ID'; // Deteksi bahasa aktif
+                    const mintAddr = document.getElementById('importSplMintInput').value.trim();
+                    const statusEl = document.getElementById('importSplStatus');
+                    const btn = document.getElementById('importSplConfirmBtn');
+                    
+                    if (!mintAddr) { 
+                        statusEl.innerText = isId ? "Masukkan alamat mint." : "Please enter mint address."; 
+                        return; 
+                    }
+                    
+                    try { new solanaWeb3.PublicKey(mintAddr); } 
+                    catch (e) { 
+                        statusEl.innerText = isId ? "Alamat Solana tidak valid." : "Invalid Solana address."; 
+                        return; 
+                    }
+                    
+                    if (App.State.customTokens.includes(mintAddr)) {
+                        statusEl.innerText = isId ? "Token sudah ada di daftar Anda." : "Token is already in your list."; 
+                        return;
+                    }
 
-        btn.innerHTML = '<div class="loader"></div>';
-        try {
-            // Verifikasi metadata token via Jupiter API
-            const res = await fetch(`https://tokens.jup.ag/token/${mintAddr}`);
-            let meta = null;
-            if (res.ok) meta = await res.json();
-            
-            App.State.customTokens.push(mintAddr);
-            localStorage.setItem('sol_custom_tokens', JSON.stringify(App.State.customTokens));
-            
-            App.UI.showToast(meta ? `Token ${meta.symbol} ditambahkan!` : "Token berhasil ditambahkan", "success");
-            App.UI.closeSheet('sheet-import-token');
-            document.getElementById('import-mint-input').value = "";
-            statusEl.innerText = "";
-            
-            this.fetchDashboard(); // Refresh UI & Saldo
-        } catch (e) {
-            statusEl.innerText = "Gagal menghubungi jaringan.";
-        } finally {
-            btn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Token';
-        }
-    },
+                    btn.innerHTML = '<div class="loader"></div>';
+                    try {
+                        let meta = null;
+                        
+                        // Coba ambil metadata dari Jupiter, tahan error DNS jika diblokir
+                        try {
+                            const res = await fetch(`https://tokens.jup.ag/token/${mintAddr}`);
+                            if (res.ok) meta = await res.json();
+                        } catch (apiError) {
+                            console.warn("API Jupiter terblokir DNS. Token tetap ditambahkan tanpa metadata.");
+                        }
+                        
+                        App.State.customTokens.push(mintAddr);
+                        localStorage.setItem('sol_custom_tokens', JSON.stringify(App.State.customTokens));
+                        
+                        // Pesan sukses dinamis multibahasa
+                        let successMsg = "";
+                        if (meta) {
+                            successMsg = isId ? `Token ${meta.symbol} ditambahkan!` : `Token ${meta.symbol} added successfully!`;
+                        } else {
+                            successMsg = isId ? "Token ditambahkan (Metadata tidak tersedia)" : "Token added (Metadata unavailable)";
+                        }
+                        
+                        App.UI.showToast(successMsg, "success");
+                        App.UI.closeSheet('modal-import-spl');
+                        document.getElementById('importSplMintInput').value = "";
+                        statusEl.innerText = "";
+                        
+                        this.fetchDashboard(); // Refresh UI & Saldo
+                    } catch (e) {
+                        statusEl.innerText = isId ? "Terjadi kesalahan internal." : "An internal error occurred.";
+                    } finally {
+                        btn.innerHTML = isId ? '<i class="fa-solid fa-plus"></i> Tambah Token' : '<i class="fa-solid fa-plus"></i> Add Token';
+                    }
+                },
 
     async fetchSplBalances() {
         const conn = this.getConnection();
