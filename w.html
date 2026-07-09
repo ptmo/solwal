@@ -953,10 +953,11 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                         text: txt, 
                         width: 220, 
                         height: 220, 
-                        logo: "https://cryptologos.cc/logos/solana-sol-logo.svg",
-                        crossOrigin: "anonymous", // Wajib agar canvas tidak tainted CORS (agar bisa di-download)
-                        logoWidth: 55,
-                        logoHeight: 55,
+                        // Menggunakan logo PNG resmi Solana dari GitHub (Bebas CORS & Kompatibel dengan Canvas)
+                        logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
+                        crossOrigin: "anonymous", 
+                        logoWidth: 50,
+                        logoHeight: 50,
                         logoBackgroundTransparent: true,
                         correctLevel: QRCode.CorrectLevel.H 
                     });
