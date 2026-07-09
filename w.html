@@ -749,10 +749,13 @@
                         const bal = await conn.getBalance(pub);
                         App.State.balances.sol = bal / solanaWeb3.LAMPORTS_PER_SOL;
                         
-                        // Jupiter API V6 untuk fetching harga yang akurat
+                        // DexScreener API untuk fetching harga SOL (Anti-Adblock)
                         try {
-                            const res = await (await fetch('https://price.jup.ag/v6/price?ids=SOL')).json();
-                            const p = res.data.SOL.price;
+                            const res = await (await fetch('https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112')).json();
+                            let p = 145.00; // Nilai default jika harga gagal diekstrak
+                            if (res.pairs && res.pairs.length > 0) {
+                                p = parseFloat(res.pairs[0].priceUsd);
+                            }
                             App.State.balances.usd = App.State.balances.sol * p;
                         } catch(e) { 
                             App.State.balances.usd = App.State.balances.sol * 145.00; // Hardcoded fallback 
@@ -831,18 +834,33 @@
                     return data;
                 },
 
-                // 2. Pengambil Saldo SPL (Bersih dari duplikasi Jupiter)
+                // Pengambil Saldo SPL (Mendukung Token Klasik & Token-2022)
                 async fetchSplBalances() {
                     const conn = this.getConnection();
                     const pub = new solanaWeb3.PublicKey(App.State.pubkey);
+                    
+                    // Definisi kedua Program ID yang wajib dibaca di Solana
                     const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+                    const TOKEN_2022_PROGRAM_ID = new solanaWeb3.PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
                     
                     try {
-                        const response = await conn.getParsedTokenAccountsByOwner(pub, { programId: TOKEN_PROGRAM_ID });
+                        // Tarik data dari kedua program secara bersamaan agar cepat
+                        const [resStandard, res2022] = await Promise.all([
+                            conn.getParsedTokenAccountsByOwner(pub, { programId: TOKEN_PROGRAM_ID }),
+                            conn.getParsedTokenAccountsByOwner(pub, { programId: TOKEN_2022_PROGRAM_ID })
+                        ]);
+                        
                         let splList = [];
                         const accountsMap = {};
                         
-                        response.value.forEach(acc => {
+                        // 1. Petakan saldo dari Token Klasik
+                        resStandard.value.forEach(acc => {
+                            const info = acc.account.data.parsed.info;
+                            accountsMap[info.mint] = info.tokenAmount.uiAmount;
+                        });
+
+                        // 2. Petakan saldo dari Token-2022 (Ini yang sebelumnya terlewat!)
+                        res2022.value.forEach(acc => {
                             const info = acc.account.data.parsed.info;
                             accountsMap[info.mint] = info.tokenAmount.uiAmount;
                         });
@@ -866,7 +884,9 @@
                             });
                         }
                         App.State.balances.spl = splList;
-                    } catch (e) { console.error("Gagal mengambil saldo SPL", e); }
+                    } catch (e) { 
+                        console.error("Gagal mengambil saldo SPL:", e); 
+                    }
                 },
 
                 // 3. Fungsi Import
