@@ -946,8 +946,20 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                     if (!c) return; // Prevent error if DOM is not ready
                     c.innerHTML = '';
                     const a = document.getElementById('rx-amount').value;
-                    let txt = `solana:${App.State.pubkey}`; if(a && a>0) txt += `?amount=${a}`;
-                    new QRCode(c, { text: txt, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.H });
+                    let txt = `solana:${App.State.pubkey}`; 
+                    if(a && a > 0) txt += `?amount=${a}`;
+                    
+                    new QRCode(c, { 
+                        text: txt, 
+                        width: 220, 
+                        height: 220, 
+                        logo: "https://cryptologos.cc/logos/solana-sol-logo.svg",
+                        crossOrigin: "anonymous", // Wajib agar canvas tidak tainted CORS (agar bisa di-download)
+                        logoWidth: 55,
+                        logoHeight: 55,
+                        logoBackgroundTransparent: true,
+                        correctLevel: QRCode.CorrectLevel.H 
+                    });
                 },
                 downloadQR() {
                     const cvs = document.querySelector('#qr-container canvas');
@@ -956,30 +968,74 @@ customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                 },
                 
                 // QR Scanner
+                processScanResult(text) {
+                    let cleanAddress = text;
+                    let requestedAmount = null;
+
+                    try {
+                        // Ekstraksi canggih standar URL (Mendukung Solana Pay)
+                        const url = new URL(text);
+                        if (url.protocol === 'solana:') {
+                            cleanAddress = url.pathname;
+                            if (url.searchParams.has('amount')) {
+                                requestedAmount = url.searchParams.get('amount');
+                            }
+                        }
+                    } catch (e) {
+                        // Fallback manual jika format URL native gagal di-parse
+                        if (cleanAddress.startsWith("solana:")) {
+                            const withoutScheme = cleanAddress.slice("solana:".length);
+                            const [addressPart, queryPart] = withoutScheme.split("?");
+                            cleanAddress = addressPart;
+                            if (queryPart) {
+                                const params = new URLSearchParams(queryPart);
+                                if (params.has('amount')) requestedAmount = params.get('amount');
+                            }
+                        }
+                    }
+
+                    // 1. Masukkan alamat ke kolom tujuan & verifikasi
+                    document.getElementById('tx-to').value = cleanAddress; 
+                    this.validateAddress();
+
+                    // 2. Jika barcode meminta nominal (amount), otomatis isi form
+                    if (requestedAmount && parseFloat(requestedAmount) > 0) {
+                        const amountInput = document.getElementById('tx-amount');
+                        amountInput.value = requestedAmount;
+                        // Memicu event input secara paksa agar tombol "Review Send" aktif
+                        amountInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+
+                    if (requestedAmount) {
+                        App.UI.showToast(`Solana Pay! Amount: ${requestedAmount} SOL`, "success");
+                    } else {
+                        App.UI.showToast("Address detected!", "success");
+                    }
+                },
+
                 startScanner() {
                     document.getElementById('qr-reader').style.display = 'block';
                     if(!App.State.qrScanner) App.State.qrScanner = new Html5Qrcode("qr-reader");
                     App.State.qrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
                         this.stopScanner();
-                        let addr = text;
-                        if(text.startsWith('solana:')) {
-                            const p = text.split('?'); addr = p[0].replace('solana:','');
-                            if(p[1]) { const sp = new URLSearchParams(p[1]); if(sp.has('amount')) document.getElementById('tx-amount').value = sp.get('amount'); }
-                        }
-                        document.getElementById('tx-to').value = addr; this.validateAddress();
+                        this.processScanResult(text);
                     }).catch(e => App.UI.showToast("Camera Error / Access Denied", "error"));
                 },
+
                 stopScanner() {
-                    if(App.State.qrScanner && App.State.qrScanner.isScanning) { App.State.qrScanner.stop(); document.getElementById('qr-reader').style.display = 'none'; }
+                    if(App.State.qrScanner && App.State.qrScanner.isScanning) { 
+                        App.State.qrScanner.stop(); 
+                        document.getElementById('qr-reader').style.display = 'none'; 
+                    }
                 },
+
                 scanFile(e) {
                     if(!e.target.files.length) return;
                     if(!App.State.qrScanner) App.State.qrScanner = new Html5Qrcode("qr-reader");
                     App.State.qrScanner.scanFile(e.target.files[0], true).then(text => {
-                        let addr = text; if(text.startsWith('solana:')) addr = text.replace('solana:','').split('?')[0];
-                        document.getElementById('tx-to').value = addr; this.validateAddress();
+                        this.processScanResult(text);
                     }).catch(e => App.UI.showToast("QR not found", "error"));
-                }
+                                               }
             },
 
             // UI Manipulation
