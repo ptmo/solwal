@@ -424,6 +424,12 @@
 
     <!-- ================= ON-CHAIN ENGINE & OOP LOGIC ================= -->
     <script>
+        // Fungsi pembantu untuk HTML
+function formatChange(change) {
+    if (!change || change === 0) return `<span style="color: #7385a5; font-size: 11px; margin-left: 6px;">0.00%</span>`;
+    if (change > 0) return `<span style="color: #00c853; font-size: 11px; margin-left: 6px;">▲ +${change.toFixed(2)}%</span>`;
+    return `<span style="color: #ff3d00; font-size: 11px; margin-left: 6px;">▼ ${change.toFixed(2)}%</span>`;
+}
         const App = {
             State: {
                 lang: localStorage.getItem('sol_lang') || 'EN',
@@ -742,6 +748,7 @@
                     }
                     return App.State.conn;
                 },
+                // 3. Update fetchDashboard untuk menangkap data Solana (Native)
                 async fetchDashboard() {
                     try {
                         const conn = this.getConnection();
@@ -749,17 +756,18 @@
                         const bal = await conn.getBalance(pub);
                         App.State.balances.sol = bal / solanaWeb3.LAMPORTS_PER_SOL;
                         
-                        // DexScreener API untuk fetching harga SOL (Anti-Adblock)
+                        App.State.balances.solPrice = 145.00;
+                        App.State.balances.solChange = 0;
+
                         try {
                             const res = await (await fetch('https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112')).json();
-                            let p = 145.00; // Nilai default jika harga gagal diekstrak
                             if (res.pairs && res.pairs.length > 0) {
-                                p = parseFloat(res.pairs[0].priceUsd);
+                                App.State.balances.solPrice = parseFloat(res.pairs[0].priceUsd || 0);
+                                App.State.balances.solChange = parseFloat(res.pairs[0].priceChange?.h24 || 0);
                             }
-                            App.State.balances.usd = App.State.balances.sol * p;
-                        } catch(e) { 
-                            App.State.balances.usd = App.State.balances.sol * 145.00; // Hardcoded fallback 
-                        }
+                        } catch(e) {}
+
+                        App.State.balances.usd = App.State.balances.sol * App.State.balances.solPrice;
 
                         await this.fetchSplBalances();
                         
@@ -767,14 +775,13 @@
                         this.fetchHistory();
                     } catch(e) { 
                         console.error("RPC Error:", e);
-                        // Logika Failover RPC Otomatis
                         if (App.State.activeRpcIndex < App.State.rpcs.length - 1) {
                             App.State.activeRpcIndex++;
-                            App.State.conn = null; // Memaksa reset koneksi
-                            this.fetchDashboard(); // Coba lagi dengan RPC berikutnya
+                            App.State.conn = null; 
+                            this.fetchDashboard(); 
                         } else {
                             App.UI.showToast("RPC Sync Error. Check network.", "error");
-                            App.UI.renderDashboard(); // Tetap render UI walau gagal
+                            App.UI.renderDashboard(); 
                         }
                     }
                 },
@@ -810,9 +817,9 @@
                     catch(e) { s.innerText="Invalid Address Checksum"; s.style.color="var(--danger)"; b.disabled=true; }
                 },
                 
-                // 1. Pencari Token Murni DexScreener (Cepat & Anti-Adblock)
+                // 1. Update getTokenData untuk menangkap change24h
                 async getTokenData(mint) {
-                    let data = { symbol: 'SPL', name: 'Unknown Token', logo: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png', price: 0 };
+                    let data = { symbol: 'SPL', name: 'Unknown Token', logo: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png', price: 0, change24h: 0 };
                     
                     try {
                         const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
@@ -825,6 +832,7 @@
                                     data.name = pair.baseToken.name || 'Unknown Token';
                                 }
                                 data.price = parseFloat(pair.priceUsd || 0);
+                                data.change24h = parseFloat(pair.priceChange?.h24 || 0); // Menangkap persentase 24 jam
                                 if (pair.info && pair.info.imageUrl) data.logo = pair.info.imageUrl;
                             }
                         }
@@ -834,17 +842,14 @@
                     return data;
                 },
 
-                // Pengambil Saldo SPL (Mendukung Token Klasik & Token-2022)
+                // 2. Update fetchSplBalances untuk memasukkan change24h ke dalam list
                 async fetchSplBalances() {
                     const conn = this.getConnection();
                     const pub = new solanaWeb3.PublicKey(App.State.pubkey);
-                    
-                    // Definisi kedua Program ID yang wajib dibaca di Solana
                     const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
                     const TOKEN_2022_PROGRAM_ID = new solanaWeb3.PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
                     
                     try {
-                        // Tarik data dari kedua program secara bersamaan agar cepat
                         const [resStandard, res2022] = await Promise.all([
                             conn.getParsedTokenAccountsByOwner(pub, { programId: TOKEN_PROGRAM_ID }),
                             conn.getParsedTokenAccountsByOwner(pub, { programId: TOKEN_2022_PROGRAM_ID })
@@ -853,17 +858,8 @@
                         let splList = [];
                         const accountsMap = {};
                         
-                        // 1. Petakan saldo dari Token Klasik
-                        resStandard.value.forEach(acc => {
-                            const info = acc.account.data.parsed.info;
-                            accountsMap[info.mint] = info.tokenAmount.uiAmount;
-                        });
-
-                        // 2. Petakan saldo dari Token-2022 (Ini yang sebelumnya terlewat!)
-                        res2022.value.forEach(acc => {
-                            const info = acc.account.data.parsed.info;
-                            accountsMap[info.mint] = info.tokenAmount.uiAmount;
-                        });
+                        resStandard.value.forEach(acc => accountsMap[acc.account.data.parsed.info.mint] = acc.account.data.parsed.info.tokenAmount.uiAmount);
+                        res2022.value.forEach(acc => accountsMap[acc.account.data.parsed.info.mint] = acc.account.data.parsed.info.tokenAmount.uiAmount);
 
                         const allMints = [...new Set([...Object.keys(accountsMap), ...App.State.customTokens])];
 
@@ -878,15 +874,14 @@
                                 balance: balance, 
                                 usdValue: balance * tokenData.price, 
                                 price: tokenData.price,
+                                change24h: tokenData.change24h, // Menyimpan data ke state aplikasi
                                 symbol: tokenData.symbol, 
                                 name: tokenData.name, 
                                 logo: tokenData.logo
                             });
                         }
                         App.State.balances.spl = splList;
-                    } catch (e) { 
-                        console.error("Gagal mengambil saldo SPL:", e); 
-                    }
+                    } catch (e) { console.error("Gagal mengambil saldo SPL:", e); }
                 },
 
                 // 3. Fungsi Import
