@@ -434,15 +434,14 @@
                 pubkey: null,
                 sessionKey: null,
                 balances: { sol: 0, usd: 0, spl: [] },
-
-                // Tambahkan di dalam App.State (di bawah balances: {...})
-customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
                 
-                // Peningkatan RPC Failover
+                customTokens: JSON.parse(localStorage.getItem('sol_custom_tokens') || '[]'),
+                
+                // Daftar RPC Publik Baru yang Stabil & Bebas CORS
                 rpcs: [
-                    "https://mainnet.helius-rpc.com/?api-key=14e86eb4-9549-43c3-8868-b7ab84f8819a", // Helius Public Fallback
-                    "https://solana-mainnet.rpc.extnode.com", // Extnode Public
-                    "https://api.mainnet-beta.solana.com", // Native Fallback
+                    "https://rpc.ankr.com/solana", // Ankr Public (Sangat handal untuk DApps)
+                    "https://solana-rpc.publicnode.com", // PublicNode (Alternatif kuat)
+                    "https://api.mainnet-beta.solana.com" // Native (Tetap disimpan sebagai benteng terakhir)
                 ],
                 activeRpcIndex: 0,
                 conn: null, 
