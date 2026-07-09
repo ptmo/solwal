@@ -806,68 +806,124 @@
                     try { new solanaWeb3.PublicKey(t); s.innerText="Valid Solana Address"; s.style.color="var(--success)"; b.disabled=false; }
                     catch(e) { s.innerText="Invalid Address Checksum"; s.style.color="var(--danger)"; b.disabled=true; }
                 },
+                // 1. TAMBAHKAN FUNGSI BARU INI: Mesin Pencari Token Anti-Blokir
+                async getTokenData(mint) {
+                    let data = { symbol: 'SPL', name: 'Unknown Token', logo: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png', price: 0 };
+                    
+                    // A. Coba jalur utama (Jupiter API)
+                    try {
+                        const metaRes = await fetch(`https://tokens.jup.ag/token/${mint}`);
+                        if (metaRes.ok) {
+                            const meta = await metaRes.json();
+                            if (meta.symbol) data.symbol = meta.symbol;
+                            if (meta.name) data.name = meta.name;
+                            if (meta.logoURI) data.logo = meta.logoURI;
+                        }
+                        const priceRes = await fetch(`https://price.jup.ag/v6/price?ids=${mint}`);
+                        if (priceRes.ok) {
+                            const priceData = await priceRes.json();
+                            if (priceData.data[mint]) data.price = priceData.data[mint].price;
+                        }
+                        if (data.name !== 'Unknown Token') return data; // Jika sukses, langsung selesai
+                    } catch (e) {
+                        console.warn("Jupiter API diblokir DNS. Mengalihkan ke DexScreener...");
+                    }
+
+                    // B. Jalur Cadangan (DexScreener API) jika Jupiter tumbang/diblokir
+                    try {
+                        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`);
+                        if (dexRes.ok) {
+                            const dexData = await dexRes.json();
+                            if (dexData.pairs && dexData.pairs.length > 0) {
+                                const pair = dexData.pairs[0];
+                                data.symbol = pair.baseToken.symbol;
+                                data.name = pair.baseToken.name;
+                                data.price = parseFloat(pair.priceUsd || 0);
+                                if (pair.info && pair.info.imageUrl) data.logo = pair.info.imageUrl;
+                            }
+                        }
+                    } catch (e) { console.warn("DexScreener juga gagal terhubung."); }
+                    
+                    return data;
+                },
+
+                // 2. GANTI FUNGSI fetchSplBalances LAMA ANDA DENGAN INI
+                async fetchSplBalances() {
+                    const conn = this.getConnection();
+                    const pub = new solanaWeb3.PublicKey(App.State.pubkey);
+                    const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+                    
+                    try {
+                        const response = await conn.getParsedTokenAccountsByOwner(pub, { programId: TOKEN_PROGRAM_ID });
+                        let splList = [];
+                        const accountsMap = {};
+                        
+                        response.value.forEach(acc => {
+                            const info = acc.account.data.parsed.info;
+                            accountsMap[info.mint] = info.tokenAmount.uiAmount;
+                        });
+
+                        const allMints = [...new Set([...Object.keys(accountsMap), ...App.State.customTokens])];
+
+                        for (const mint of allMints) {
+                            const balance = accountsMap[mint] || 0;
+                            if (balance === 0 && !App.State.customTokens.includes(mint)) continue;
+
+                            // Gunakan fungsi pintar yang baru kita buat
+                            const tokenData = await this.getTokenData(mint);
+
+                            splList.push({
+                                mint: mint, 
+                                balance: balance, 
+                                usdValue: balance * tokenData.price, 
+                                price: tokenData.price,
+                                symbol: tokenData.symbol, 
+                                name: tokenData.name, 
+                                logo: tokenData.logo
+                            });
+                        }
+                        App.State.balances.spl = splList;
+                    } catch (e) { console.error("Gagal mengambil saldo SPL", e); }
+                },
+
+                // 3. GANTI FUNGSI importToken LAMA ANDA DENGAN INI
                 async importToken() {
                     const isId = App.State.lang === 'ID';
-                    
-                    // 1. Perbaikan Bug 'null' (Mendeteksi ID HTML versi lama dan baru sekaligus)
                     const inputEl = document.getElementById('importSplMintInput') || document.getElementById('import-mint-input');
                     const statusEl = document.getElementById('importSplStatus') || document.getElementById('import-status');
                     const btn = document.getElementById('importSplConfirmBtn') || document.getElementById('btn-import-token');
                     
-                    if (!inputEl) {
-                        console.error("Elemen input HTML tidak ditemukan!");
-                        return;
-                    }
-
+                    if (!inputEl) return;
                     const mintAddr = inputEl.value.trim();
-                    
-                    if (!mintAddr) { 
-                        statusEl.innerText = isId ? "Masukkan alamat mint." : "Please enter mint address."; 
-                        return; 
-                    }
+                    if (!mintAddr) { statusEl.innerText = isId ? "Masukkan alamat mint." : "Please enter mint address."; return; }
                     
                     try { new solanaWeb3.PublicKey(mintAddr); } 
-                    catch (e) { 
-                        statusEl.innerText = isId ? "Alamat Solana tidak valid." : "Invalid Solana address."; 
-                        return; 
-                    }
+                    catch (e) { statusEl.innerText = isId ? "Alamat Solana tidak valid." : "Invalid Solana address."; return; }
                     
                     if (App.State.customTokens.includes(mintAddr)) {
-                        statusEl.innerText = isId ? "Token sudah ada di daftar Anda." : "Token is already in your list."; 
-                        return;
+                        statusEl.innerText = isId ? "Token sudah ada di daftar Anda." : "Token is already in your list."; return;
                     }
 
                     btn.innerHTML = '<div class="loader"></div>';
                     try {
-                        let meta = null;
-                        
-                        // Coba ambil metadata, abaikan jika DNS HP memblokir
-                        try {
-                            const res = await fetch(`https://tokens.jup.ag/token/${mintAddr}`);
-                            if (res.ok) meta = await res.json();
-                        } catch (apiError) {
-                            console.warn("API Jupiter terblokir. Token tetap ditambahkan tanpa metadata.");
-                        }
+                        // Gunakan fungsi pintar penarik metadata anti-blokir
+                        const tokenData = await this.getTokenData(mintAddr);
                         
                         App.State.customTokens.push(mintAddr);
                         localStorage.setItem('sol_custom_tokens', JSON.stringify(App.State.customTokens));
                         
                         let successMsg = "";
-                        if (meta) {
-                            successMsg = isId ? `Token ${meta.symbol} ditambahkan!` : `Token ${meta.symbol} added successfully!`;
+                        if (tokenData.name !== 'Unknown Token') {
+                            successMsg = isId ? `Token ${tokenData.symbol} ditambahkan!` : `Token ${tokenData.symbol} added successfully!`;
                         } else {
-                            successMsg = isId ? "Token ditambahkan (Tanpa Metadata)" : "Token added (No Metadata)";
+                            successMsg = isId ? "Token ditambahkan (Jaringan lambat)" : "Token added (Network slow)";
                         }
                         
                         App.UI.showToast(successMsg, "success");
-                        
-                        // Deteksi penutup modal sesuai versi HTML
                         if (document.getElementById('modal-import-spl')) App.UI.closeSheet('modal-import-spl');
                         else if (document.getElementById('sheet-import-token')) App.UI.closeSheet('sheet-import-token');
                         
-                        inputEl.value = "";
-                        statusEl.innerText = "";
-                        
+                        inputEl.value = ""; statusEl.innerText = "";
                         this.fetchDashboard(); 
                     } catch (e) {
                         statusEl.innerText = isId ? "Terjadi kesalahan internal." : "An internal error occurred.";
