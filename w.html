@@ -651,20 +651,21 @@ function formatChange(change) {
                 }
         },
 
-                // Fungsi Mengubah Nama Dompet
+                // Fungsi Mengubah Nama Dompet (Menggunakan UI Kustom)
                 renameWallet(id) {
                     const wallet = App.State.wallets.find(w => w.id === id);
                     if (!wallet) return;
                     
-                    // Menggunakan prompt bawaan browser agar ringan dan cepat
-                    const newName = prompt("Masukkan nama baru untuk dompet ini:", wallet.name);
-                    
-                    if (newName && newName.trim() !== "") {
-                        wallet.name = newName.trim();
-                        localStorage.setItem('sol_wallets', JSON.stringify(App.State.wallets));
-                        App.UI.initDashboard(); // Render ulang daftar agar nama baru langsung muncul
-                        App.UI.showToast("Nama dompet berhasil diubah!");
-                    }
+                    // Memanggil modal prompt kustom yang baru dibuat
+                    App.UI.prompt("Ubah Nama Dompet", wallet.name, (newName) => {
+                        if (newName && newName.trim() !== "") {
+                            wallet.name = newName.trim();
+                            localStorage.setItem('sol_wallets', JSON.stringify(App.State.wallets));
+                            
+                            App.UI.initDashboard(); // Render ulang daftar agar nama baru langsung muncul
+                            App.UI.showToast("Nama dompet berhasil diubah!");
+                        }
+                    });
                 },
 
                 // Fungsi Menghapus Dompet
@@ -1255,16 +1256,47 @@ function formatChange(change) {
                     document.getElementById('dialog-actions').innerHTML = `<button class="btn btn-primary" onclick="App.UI.closeSheet('sys-dialog')">OK</button>`;
                     this.openSheet('sys-dialog');
                 },
+
                 confirm(title, msg, onYes) {
                     document.getElementById('dialog-icon').innerHTML = '<i class="fa-solid fa-circle-question text-primary"></i>';
-                    document.getElementById('dialog-title').innerText = title; document.getElementById('dialog-msg').innerHTML = msg;
+                    document.getElementById('dialog-title').innerText = title; 
+                    document.getElementById('dialog-msg').innerHTML = msg;
                     document.getElementById('dialog-actions').innerHTML = `
                         <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog')">Cancel</button>
                         <button class="btn btn-primary" id="dialog-btn-yes">Yes</button>`;
+                        
                     document.getElementById('dialog-btn-yes').onclick = () => { this.closeSheet('sys-dialog'); onYes(); };
+                    
+                    // FIX 1: Paksa z-index agar modal selalu tampil di depan sheet daftar dompet
+                    document.getElementById('sys-dialog').style.zIndex = "99999";
                     this.openSheet('sys-dialog');
                 },
 
+                // FIX 2: Fungsi Prompt Kustom yang seragam dengan tema aplikasi
+                prompt(title, defaultValue, onSave) {
+                    document.getElementById('dialog-icon').innerHTML = '<i class="fa-solid fa-pen text-primary"></i>';
+                    document.getElementById('dialog-title').innerText = title;
+                    
+                    // Merender Input Box Kustom di dalam Modal
+                    document.getElementById('dialog-msg').innerHTML = `
+                        <input type="text" id="dialog-prompt-input" class="input-box" value="${defaultValue}" placeholder="Ketik nama baru..." style="margin-top:10px; width:100%; box-sizing:border-box; text-align:center;">
+                    `;
+                    
+                    document.getElementById('dialog-actions').innerHTML = `
+                        <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog')">Batal</button>
+                        <button class="btn btn-primary" id="dialog-btn-save">Simpan</button>`;
+                        
+                    document.getElementById('dialog-btn-save').onclick = () => {
+                        const val = document.getElementById('dialog-prompt-input').value;
+                        this.closeSheet('sys-dialog');
+                        onSave(val); // Eksekusi fungsi penyimpanan
+                    };
+                    
+                    // Paksa z-index ke tingkat tertinggi
+                    document.getElementById('sys-dialog').style.zIndex = "99999";
+                    this.openSheet('sys-dialog');
+                },
+                
                 toggleTheme() {
                     App.State.theme = App.State.theme === 'dark' ? 'light' : 'dark';
                     document.documentElement.setAttribute('data-theme', App.State.theme);
