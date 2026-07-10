@@ -1272,25 +1272,27 @@ function formatChange(change) {
                 openAssetAction(mint, symbol) {
                     document.getElementById('tx-mint').value = mint;
                     
-                    // 1. Ganti Ikon Modal dan Judul
-                    document.getElementById('dialog-icon').innerHTML = '<i class="fa-solid fa-paper-plane text-primary" style="font-size: 28px;"></i>';
+                    // 1. Injeksi tombol X (Close) di sudut kanan atas & Ikon utama
+                    document.getElementById('dialog-icon').innerHTML = `
+                        <i class="fa-solid fa-xmark" onclick="App.UI.closeSheet('sys-dialog')" style="position: absolute; top: 16px; right: 20px; font-size: 24px; color: var(--text-muted); cursor: pointer;"></i>
+                        <i class="fa-solid fa-paper-plane text-primary" style="font-size: 28px; margin-top: 10px;"></i>
+                    `;
+                    
                     document.getElementById('dialog-title').innerText = symbol;
                     
-                    // 2. Susun tombol atas-bawah (flex-direction: column) agar lebih lega
+                    // 2. Tambahkan min-width: 80vw agar modal mekar menyesuaikan layar HP
                     const html = `
-                        <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px; width:100%;">
-                            <button class="btn btn-primary" style="padding:14px; font-size:16px;" onclick="App.UI.closeSheet('sys-dialog'); App.Network.prepareSend('${mint}');">
+                        <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px; width:100%; min-width: 80vw; max-width: 350px;">
+                            <button class="btn btn-primary" style="padding:14px; font-size:16px; width:100%;" onclick="App.UI.closeSheet('sys-dialog'); App.Network.prepareSend('${mint}');">
                                 <i class="fa-solid fa-arrow-up"></i> Send
                             </button>
-                            <button class="btn btn-secondary" style="padding:14px; font-size:16px;" onclick="App.UI.closeSheet('sys-dialog'); App.UI.openSheet('sheet-receive'); App.Network.generateQR();">
+                            <button class="btn btn-secondary" style="padding:14px; font-size:16px; width:100%;" onclick="App.UI.closeSheet('sys-dialog'); App.UI.openSheet('sheet-receive'); App.Network.generateQR();">
                                 <i class="fa-solid fa-arrow-down"></i> Receive
                             </button>
                         </div>
                     `;
                     document.getElementById('dialog-msg').innerHTML = html;
-                    
-                    // 3. Kosongkan action bawaan (Hapus tombol OK yang membuat sempit)
-                    document.getElementById('dialog-actions').innerHTML = '';
+                    document.getElementById('dialog-actions').innerHTML = ''; // Kosongkan action bawaan
                     
                     this.openSheet('sys-dialog');
                 },
