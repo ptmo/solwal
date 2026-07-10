@@ -651,46 +651,50 @@ function formatChange(change) {
                 }
         },
 
-                // Fungsi Mengubah Nama Dompet (Menggunakan UI Kustom)
+                // Fungsi Mengubah Nama Dompet
                 renameWallet(id) {
+                    const isId = App.State.lang === 'ID';
                     const wallet = App.State.wallets.find(w => w.id === id);
                     if (!wallet) return;
                     
-                    // Memanggil modal prompt kustom yang baru dibuat
-                    App.UI.prompt("Ubah Nama Dompet", wallet.name, (newName) => {
+                    const titleTxt = isId ? "Ubah Nama Dompet" : "Rename Wallet";
+                    
+                    App.UI.prompt(titleTxt, wallet.name, (newName) => {
                         if (newName && newName.trim() !== "") {
                             wallet.name = newName.trim();
                             localStorage.setItem('sol_wallets', JSON.stringify(App.State.wallets));
                             
-                            App.UI.initDashboard(); // Render ulang daftar agar nama baru langsung muncul
-                            App.UI.showToast("Nama dompet berhasil diubah!");
+                            App.UI.initDashboard(); 
+                            App.UI.showToast(isId ? "Nama dompet berhasil diubah!" : "Wallet name updated!");
                         }
                     });
                 },
 
                 // Fungsi Menghapus Dompet
                 deleteWallet(id) {
-                    // Cegah penghapusan jika ini adalah satu-satunya dompet yang tersisa
+                    const isId = App.State.lang === 'ID';
+                    
                     if (App.State.wallets.length <= 1) {
-                        App.UI.showToast("Tidak bisa menghapus satu-satunya dompet!", "error");
+                        App.UI.showToast(isId ? "Tidak bisa menghapus satu-satunya dompet!" : "Cannot delete the only wallet!", "error");
                         return;
                     }
                     
-                    App.UI.confirm("Hapus Dompet", "Yakin ingin menghapus dompet ini? Pastikan Anda sudah mem-backup Private Key / Seed Phrase!", () => {
-                        // Filter (buang) dompet yang dipilih dari memori
+                    const titleTxt = isId ? "Hapus Dompet" : "Delete Wallet";
+                    const msgTxt = isId 
+                        ? "Yakin ingin menghapus dompet ini? Pastikan Anda sudah mem-backup Private Key / Seed Phrase!" 
+                        : "Are you sure you want to delete this wallet? Make sure you have backed up your Private Key / Seed Phrase!";
+                    
+                    App.UI.confirm(titleTxt, msgTxt, () => {
                         App.State.wallets = App.State.wallets.filter(w => w.id !== id);
                         
-                        // Jika dompet yang dihapus kebetulan sedang dipakai (aktif), pindahkan paksa ke dompet urutan pertama
                         if (App.State.activeId === id) {
                             App.State.activeId = App.State.wallets[0].id;
                             localStorage.setItem('sol_active', App.State.activeId);
                         }
                         
-                        // Simpan data baru
                         localStorage.setItem('sol_wallets', JSON.stringify(App.State.wallets));
-                        App.UI.showToast("Dompet berhasil dihapus!", "success");
+                        App.UI.showToast(isId ? "Dompet berhasil dihapus!" : "Wallet deleted successfully!", "success");
                         
-                        // Reload otomatis agar saldo dan data dompet baru termuat dengan benar
                         setTimeout(() => window.location.reload(), 500);
                     });
                 }
@@ -1258,41 +1262,44 @@ function formatChange(change) {
                 },
 
                 confirm(title, msg, onYes) {
+                    const isId = App.State.lang === 'ID'; // Deteksi Bahasa
                     document.getElementById('dialog-icon').innerHTML = '<i class="fa-solid fa-circle-question text-primary"></i>';
                     document.getElementById('dialog-title').innerText = title; 
                     document.getElementById('dialog-msg').innerHTML = msg;
                     document.getElementById('dialog-actions').innerHTML = `
-                        <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog')">Cancel</button>
-                        <button class="btn btn-primary" id="dialog-btn-yes">Yes</button>`;
+                        <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog')">${isId ? 'Batal' : 'Cancel'}</button>
+                        <button class="btn btn-primary" id="dialog-btn-yes">${isId ? 'Ya' : 'Yes'}</button>`;
                         
                     document.getElementById('dialog-btn-yes').onclick = () => { this.closeSheet('sys-dialog'); onYes(); };
                     
-                    // FIX 1: Paksa z-index agar modal selalu tampil di depan sheet daftar dompet
+                    // FIX 1: Paksa z-index
                     document.getElementById('sys-dialog').style.zIndex = "99999";
                     this.openSheet('sys-dialog');
                 },
 
-                // FIX 2: Fungsi Prompt Kustom yang seragam dengan tema aplikasi
                 prompt(title, defaultValue, onSave) {
+                    const isId = App.State.lang === 'ID'; // Deteksi Bahasa
                     document.getElementById('dialog-icon').innerHTML = '<i class="fa-solid fa-pen text-primary"></i>';
                     document.getElementById('dialog-title').innerText = title;
                     
-                    // Merender Input Box Kustom di dalam Modal
+                    const placeholderTxt = isId ? 'Ketik nama baru...' : 'Enter new name...';
+                    
+                    // Merender Input Box Kustom
                     document.getElementById('dialog-msg').innerHTML = `
-                        <input type="text" id="dialog-prompt-input" class="input-box" value="${defaultValue}" placeholder="Ketik nama baru..." style="margin-top:10px; width:100%; box-sizing:border-box; text-align:center;">
+                        <input type="text" id="dialog-prompt-input" class="input-box" value="${defaultValue}" placeholder="${placeholderTxt}" style="margin-top:10px; width:100%; box-sizing:border-box; text-align:center;">
                     `;
                     
                     document.getElementById('dialog-actions').innerHTML = `
-                        <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog')">Batal</button>
-                        <button class="btn btn-primary" id="dialog-btn-save">Simpan</button>`;
+                        <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog')">${isId ? 'Batal' : 'Cancel'}</button>
+                        <button class="btn btn-primary" id="dialog-btn-save">${isId ? 'Simpan' : 'Save'}</button>`;
                         
                     document.getElementById('dialog-btn-save').onclick = () => {
                         const val = document.getElementById('dialog-prompt-input').value;
                         this.closeSheet('sys-dialog');
-                        onSave(val); // Eksekusi fungsi penyimpanan
+                        onSave(val);
                     };
                     
-                    // Paksa z-index ke tingkat tertinggi
+                    // Paksa z-index
                     document.getElementById('sys-dialog').style.zIndex = "99999";
                     this.openSheet('sys-dialog');
                 },
