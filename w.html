@@ -785,6 +785,34 @@ function formatChange(change) {
                         }
                     }
                 },
+
+                prepareSend(mint) {
+                    document.getElementById('tx-mint').value = mint;
+                    document.getElementById('tx-amount').value = '';
+                    document.getElementById('tx-to').value = '';
+                    
+                    let maxBal = 0;
+                    let symbol = 'SOL';
+                    
+                    // Deteksi apakah yang dikirim SOL atau SPL Token
+                    if (mint === 'native') {
+                        maxBal = App.State.balances.sol;
+                    } else {
+                        const splToken = App.State.balances.spl.find(x => x.mint === mint);
+                        if (splToken) {
+                            maxBal = splToken.balance;
+                            symbol = splToken.symbol;
+                        }
+                    }
+
+                    // Trik DOM: Ganti keseluruhan teks pada pembungkus MAX balance
+                    const maxLabel = document.getElementById('tx-max-bal');
+                    if (maxLabel && maxLabel.parentElement) {
+                        maxLabel.parentElement.innerHTML = `MAX: <span id="tx-max-bal">${maxBal}</span> ${symbol}`;
+                    }
+                    
+                    App.UI.openSheet('sheet-send');
+                },
                 async fetchHistory() {
                     try {
                         const conn = this.getConnection();
@@ -886,6 +914,51 @@ function formatChange(change) {
                         }
                         App.State.balances.spl = splList;
                     } catch (e) { console.error("Gagal mengambil saldo SPL:", e); }
+                },
+
+                // 3. Fungsi Import
+                async importToken() {
+                    const isId = App.State.lang === 'ID';
+                    const inputEl = document.getElementById('importSplMintInput') || document.getElementById('import-mint-input');
+                    const statusEl = document.getElementById('importSplStatus') || document.getElementById('import-status');
+                    const btn = document.getElementById('importSplConfirmBtn') || document.getElementById('btn-import-token');
+                    
+                    if (!inputEl) return;
+                    const mintAddr = inputEl.value.trim();
+                    if (!mintAddr) { statusEl.innerText = isId ? "Masukkan alamat mint." : "Please enter mint address."; return; }
+                    
+                    try { new solanaWeb3.PublicKey(mintAddr); } 
+                    catch (e) { statusEl.innerText = isId ? "Alamat Solana tidak valid." : "Invalid Solana address."; return; }
+                    
+                    if (App.State.customTokens.includes(mintAddr)) {
+                        statusEl.innerText = isId ? "Token sudah ada di daftar Anda." : "Token is already in your list."; return;
+                    }
+
+                    btn.innerHTML = '<div class="loader"></div>';
+                    try {
+                        const tokenData = await this.getTokenData(mintAddr);
+                        
+                        App.State.customTokens.push(mintAddr);
+                        localStorage.setItem('sol_custom_tokens', JSON.stringify(App.State.customTokens));
+
+                        let successMsg = "";
+                        if (tokenData.name !== 'Unknown Token') {
+                            successMsg = isId ? `Token ${tokenData.symbol} ditambahkan!` : `Token ${tokenData.symbol} added successfully!`;
+                        } else {
+                            successMsg = isId ? "Token ditambahkan (Jaringan lambat)" : "Token added (Network slow)";
+                        }
+                        
+                        App.UI.showToast(successMsg, "success");
+                        if (document.getElementById('modal-import-spl')) App.UI.closeSheet('modal-import-spl');
+                        else if (document.getElementById('sheet-import-token')) App.UI.closeSheet('sheet-import-token');
+                        
+                        inputEl.value = ""; statusEl.innerText = "";
+                        this.fetchDashboard(); 
+                    } catch (e) {
+                        statusEl.innerText = isId ? "Terjadi kesalahan internal." : "An internal error occurred.";
+                    } finally {
+                        btn.innerHTML = isId ? '<i class="fa-solid fa-plus"></i> Tambah Token' : '<i class="fa-solid fa-plus"></i> Add Token';
+                    }
                 },
 
                 // (Timpa fungsi setMax dengan ini agar bisa mendeteksi limit Max SPL)
@@ -1198,17 +1271,28 @@ function formatChange(change) {
                     // (Tambahkan fungsi ini tepat di bawah showLoader / hideLoader)
                 openAssetAction(mint, symbol) {
                     document.getElementById('tx-mint').value = mint;
+                    
+                    // 1. Ganti Ikon Modal dan Judul
+                    document.getElementById('dialog-icon').innerHTML = '<i class="fa-solid fa-paper-plane text-primary" style="font-size: 28px;"></i>';
+                    document.getElementById('dialog-title').innerText = symbol;
+                    
+                    // 2. Susun tombol atas-bawah (flex-direction: column) agar lebih lega
                     const html = `
-                        <div style="display:flex; gap:10px; margin-top:15px;">
-                            <button class="btn btn-primary" style="flex:1;" onclick="App.UI.closeSheet('sys-dialog'); document.getElementById('tx-amount').value=''; App.UI.openSheet('sheet-send');">
-                                <i class="fa-solid fa-paper-plane"></i> Send
+                        <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px; width:100%;">
+                            <button class="btn btn-primary" style="padding:14px; font-size:16px;" onclick="App.UI.closeSheet('sys-dialog'); App.Network.prepareSend('${mint}');">
+                                <i class="fa-solid fa-arrow-up"></i> Send
                             </button>
-                            <button class="btn btn-secondary" style="flex:1;" onclick="App.UI.closeSheet('sys-dialog'); App.UI.openSheet('sheet-receive'); App.Network.generateQR();">
-                                <i class="fa-solid fa-qrcode"></i> Receive
+                            <button class="btn btn-secondary" style="padding:14px; font-size:16px;" onclick="App.UI.closeSheet('sys-dialog'); App.UI.openSheet('sheet-receive'); App.Network.generateQR();">
+                                <i class="fa-solid fa-arrow-down"></i> Receive
                             </button>
                         </div>
                     `;
-                    this.alert(`Aksi: ${symbol}`, html);
+                    document.getElementById('dialog-msg').innerHTML = html;
+                    
+                    // 3. Kosongkan action bawaan (Hapus tombol OK yang membuat sempit)
+                    document.getElementById('dialog-actions').innerHTML = '';
+                    
+                    this.openSheet('sys-dialog');
                 },
 
                 // (Ganti renderDashboard lama Anda dengan ini)
