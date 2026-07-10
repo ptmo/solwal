@@ -861,26 +861,158 @@ function formatChange(change) {
                     
                     App.UI.openSheet('sheet-send');
                 },
-                async fetchHistory() {
+                async fetchHistory(isPagination = false) {
+                    // 1. Inisialisasi State Dinamis & Proteksi Spam Fetching
+                    App.State.historyList = App.State.historyList || [];
+                    App.State.historyLastSig = App.State.historyLastSig || null;
+                    if (App.State.isFetchingHistory) return;
+                    App.State.isFetchingHistory = true;
+
+                    const isId = App.State.lang === 'ID';
+                    const txListEl = document.getElementById('tx-list');
+                    
+                    // 2. Tampilkan Loader
+                    if (!isPagination) {
+                        App.State.historyList = [];
+                        App.State.historyLastSig = null;
+                        txListEl.innerHTML = `<div class="loader" style="margin:40px auto;"></div>`;
+                    } else {
+                        txListEl.innerHTML += `<div id="history-loader" class="loader" style="margin:20px auto;"></div>`;
+                    }
+
+                    // 3. Pasang Infinite Scroll Secara Otomatis (Hanya 1x)
+                    if (!App.State.historyScrollBound) {
+                        window.addEventListener('scroll', () => {
+                            if (txListEl && txListEl.offsetParent !== null) {
+                                if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+                                    this.fetchHistory(true); // Panggil halaman berikutnya
+                                }
+                            }
+                        });
+                        App.State.historyScrollBound = true;
+                    }
+
                     try {
                         const conn = this.getConnection();
                         const pub = new solanaWeb3.PublicKey(App.State.pubkey);
-                        const sigs = await conn.getSignaturesForAddress(pub, {limit: 10});
                         
-                        const html = sigs.length === 0 ? '<p class="subtitle text-center mt-24">No transactions found.</p>' : sigs.map(s => `
-                            <div class="list-item" onclick="window.open('https://solscan.io/tx/${s.signature}', '_blank')">
-                                <div class="item-icon" style="color:var(--primary);"><i class="fa-solid fa-link"></i></div>
-                                <div class="item-info">
-                                    <div class="item-title">${s.err ? '<span class="text-red">Failed Tx</span>' : 'Confirmed Tx'}</div>
-                                    <div class="item-sub">${new Date(s.blockTime*1000).toLocaleString()}</div>
-                                </div>
-                                <i class="fa-solid fa-chevron-right text-muted"></i>
-                            </div>
-                        `).join('');
-                        document.getElementById('tx-list').innerHTML = html;
+                        // Limit Halaman: Awal 10, Scroll selanjutnya 15
+                        const options = { limit: isPagination ? 15 : 10 };
+                        if (App.State.historyLastSig) options.before = App.State.historyLastSig;
+
+                        const sigs = await conn.getSignaturesForAddress(pub, options);
+                        
+                        if (sigs.length === 0) {
+                            if (!isPagination) txListEl.innerHTML = `<p class="subtitle text-center mt-24">${isId ? 'Belum ada transaksi.' : 'No transactions found.'}</p>`;
+                            const loader = document.getElementById('history-loader');
+                            if (loader) loader.remove();
+                            App.State.isFetchingHistory = false;
+                            return;
+                        }
+
+                        App.State.historyLastSig = sigs[sigs.length - 1].signature;
+
+                        // Tarik Data Parsed (Membongkar Metadata Transaksi)
+                        const parsedTxs = await conn.getParsedTransactions(sigs.map(s => s.signature), { maxSupportedTransactionVersion: 0 });
+                        const newHistory = [];
+                        
+                        for (let i = 0; i < parsedTxs.length; i++) {
+                            const tx = parsedTxs[i];
+                            const sigInfo = sigs[i];
+                            if (!tx || !tx.meta) continue;
+
+                            let type = 'unknown'; let amount = 0; let symbol = 'SOL';
+                            let sender = tx.transaction.message.accountKeys[0].pubkey.toBase58();
+                            
+                            // Mendeteksi Penerima (Wallet Writable pertama selain Sender)
+                            const rxKey = tx.transaction.message.accountKeys.find((k, idx) => idx > 0 && k.writable && !k.signer);
+                            let receiver = rxKey ? rxKey.pubkey.toBase58() : (isId ? 'Kontrak Sistem' : 'System Contract');
+                            
+                            // A. Deteksi Saldo SPL Token
+                            const preToken = (tx.meta.preTokenBalances || []).find(t => t.owner === App.State.pubkey);
+                            const postToken = (tx.meta.postTokenBalances || []).find(t => t.owner === App.State.pubkey);
+                            
+                            if (preToken || postToken) {
+                                const preAmt = preToken ? parseFloat(preToken.uiTokenAmount.uiAmount) : 0;
+                                const postAmt = postToken ? parseFloat(postToken.uiTokenAmount.uiAmount) : 0;
+                                const diff = postAmt - preAmt;
+                                
+                                if (Math.abs(diff) > 0) {
+                                    amount = Math.abs(diff);
+                                    type = diff < 0 ? 'send' : 'receive';
+                                    const mint = (postToken || preToken).mint;
+                                    const known = App.State.balances.spl.find(s => s.mint === mint);
+                                    symbol = known ? known.symbol : mint.slice(0,4).toUpperCase();
+                                }
+                            } 
+                            
+                            // B. Deteksi Saldo Native SOL (Jika bukan Token SPL)
+                            if (amount === 0) {
+                                const accIdx = tx.transaction.message.accountKeys.findIndex(k => k.pubkey.toBase58() === App.State.pubkey);
+                                if (accIdx !== -1) {
+                                    const preBal = tx.meta.preBalances[accIdx];
+                                    const postBal = tx.meta.postBalances[accIdx];
+                                    const diff = (postBal - preBal) / solanaWeb3.LAMPORTS_PER_SOL;
+                                    
+                                    // Sembunyikan gas fee (potongan di bawah 0.0005) agar rapi
+                                    if (Math.abs(diff) > 0.0005) {
+                                        amount = Math.abs(diff);
+                                        type = diff < 0 ? 'send' : 'receive';
+                                    }
+                                }
+                            }
+
+                            if (amount > 0) {
+                                newHistory.push({
+                                    hash: sigInfo.signature, type, amount, symbol, sender, receiver,
+                                    date: new Date(sigInfo.blockTime * 1000).toISOString(),
+                                    isErr: sigInfo.err !== null
+                                });
+                            }
+                        }
+
+                        App.State.historyList = [...App.State.historyList, ...newHistory];
+                        this.renderHistory();
+
                     } catch(e) {
-                        document.getElementById('tx-list').innerHTML = '<p class="subtitle text-center mt-24 text-red">History sync failed.</p>';
+                        console.error("History Error:", e);
+                        if (!isPagination) document.getElementById('tx-list').innerHTML = `<p class="subtitle text-center mt-24 text-red">History sync failed.</p>`;
+                    } finally {
+                        App.State.isFetchingHistory = false;
                     }
+                },
+
+                renderHistory() {
+                    const isId = App.State.lang === 'ID';
+                    const html = App.State.historyList.map(tx => {
+                        const isSend = tx.type === 'send';
+                        const icon = isSend ? 'fa-arrow-up' : 'fa-arrow-down';
+                        const color = isSend ? '#ff3d00' : '#00c853';
+                        const title = isSend ? (isId ? 'Kirim' : 'Send') : (isId ? 'Terima' : 'Receive');
+                        const dateObj = new Date(tx.date);
+                        const dateStr = dateObj.toLocaleString(isId ? 'id-ID' : 'en-US', { dateStyle: 'short', timeStyle: 'medium' });
+                        
+                        // Enkode data agar aman masuk ke tag HTML (untuk modal)
+                        const txData = encodeURIComponent(JSON.stringify(tx));
+
+                        return `
+                            <div class="glass list-item" style="margin-bottom: 10px; cursor: pointer;" onclick="App.UI.showTxDetail('${txData}')">
+                                <div class="item-icon" style="color:${color}; background:transparent; border:2px solid ${color}40; display:flex; justify-content:center; align-items:center;">
+                                    <i class="fa-solid ${icon}"></i>
+                                </div>
+                                <div class="item-info">
+                                    <div class="item-title">${tx.isErr ? '<i class="fa-solid fa-triangle-exclamation text-red"></i> ' : ''}${title} ${tx.symbol}</div>
+                                    <div class="item-sub">${dateStr}</div>
+                                </div>
+                                <div class="item-value">
+                                    <div class="val-title" style="color:${color};">${isSend ? '-' : '+'}${tx.amount.toLocaleString(undefined, {maximumFractionDigits: 4})}</div>
+                                    <div class="val-sub" style="text-align: right;">${tx.symbol}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    document.getElementById('tx-list').innerHTML = html;
                 },
                 
                 // Send Flow
@@ -1300,6 +1432,63 @@ function formatChange(change) {
                     };
                     
                     // Paksa z-index
+                    document.getElementById('sys-dialog').style.zIndex = "99999";
+                    this.openSheet('sys-dialog');
+                },
+
+                // Fungsi Menampilkan Detail Transaksi (Struk Pembayaran)
+                showTxDetail(encodedTx) {
+                    const tx = JSON.parse(decodeURIComponent(encodedTx));
+                    const isId = App.State.lang === 'ID';
+                    
+                    const title = isId ? 'Struk Transaksi' : 'Transaction Receipt';
+                    const typeStr = tx.type === 'send' ? (isId ? 'Kirim' : 'Send') : (isId ? 'Terima' : 'Receive');
+                    const color = tx.type === 'send' ? '#ff3d00' : '#00c853';
+                    const dateObj = new Date(tx.date);
+                    
+                    // Format tanggal super lengkap (Hari, Tanggal Bulan Tahun, Jam:Menit:Detik)
+                    const dateStr = dateObj.toLocaleString(isId ? 'id-ID' : 'en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                    const html = `
+                        <div style="text-align:center; margin-bottom: 25px;">
+                            <div style="font-size: 32px; font-weight: bold; color: ${color};">${tx.type === 'send' ? '-' : '+'}${tx.amount.toLocaleString(undefined, {maximumFractionDigits: 6})} <span style="font-size: 18px; color: var(--text-muted);">${tx.symbol}</span></div>
+                            <div style="color: var(--text-muted); font-size: 13px; margin-top: 5px;">${dateStr}</div>
+                        </div>
+                        
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 18px; border-radius: 12px; margin-bottom: 20px; font-size: 14px; text-align: left;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom: 15px;">
+                                <span style="color:var(--text-muted);">${isId ? 'Status' : 'Status'}</span>
+                                <span style="font-weight:bold; color:${tx.isErr ? '#ff3d00' : '#00c853'};">${tx.isErr ? (isId ? 'Gagal' : 'Failed') : (isId ? 'Sukses' : 'Success')}</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom: 15px;">
+                                <span style="color:var(--text-muted);">${isId ? 'Tipe' : 'Type'}</span>
+                                <span style="font-weight:bold; color:${color};">${typeStr} ${tx.symbol}</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom: 15px;">
+                                <span style="color:var(--text-muted);">${isId ? 'Pengirim' : 'Sender'}</span>
+                                <span style="font-family:monospace; color:var(--primary); font-size:13px;">${tx.sender.slice(0,6)}...${tx.sender.slice(-6)}</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <span style="color:var(--text-muted);">${isId ? 'Penerima' : 'Receiver'}</span>
+                                <span style="font-family:monospace; color:var(--primary); font-size:13px;">${tx.receiver.slice(0,6)}...${tx.receiver.slice(-6)}</span>
+                            </div>
+                        </div>
+                        
+                        <button class="btn btn-primary" style="width:100%; padding:14px; display:flex; justify-content:center; gap:8px;" onclick="window.open('https://solscan.io/tx/${tx.hash}', '_blank')">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> ${isId ? 'Lihat di Solana Explorer' : 'View on Solana Explorer'}
+                        </button>
+                    `;
+                    
+                    // Membajak dialog kustom untuk Struk
+                    document.getElementById('dialog-icon').innerHTML = '<i class="fa-solid fa-receipt text-primary"></i>';
+                    document.getElementById('dialog-title').innerText = title; 
+                    document.getElementById('dialog-msg').innerHTML = html;
+                    
+                    // Sembunyikan Action default karena tombolnya sudah ada di dalam HTML struk
+                    document.getElementById('dialog-actions').innerHTML = `
+                        <button class="btn btn-secondary" style="width:100%;" onclick="App.UI.closeSheet('sys-dialog')">${isId ? 'Tutup' : 'Close'}</button>
+                    `;
+                    
                     document.getElementById('sys-dialog').style.zIndex = "99999";
                     this.openSheet('sys-dialog');
                 },
