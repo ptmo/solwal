@@ -915,27 +915,83 @@ function formatChange(change) {
                         } else {
                             successMsg = isId ? "Token ditambahkan (Jaringan lambat)" : "Token added (Network slow)";
                         }
+
+                        // (Timpa fungsi fetchSplBalances dengan ini)
+                async fetchSplBalances() {
+                    const conn = this.getConnection();
+                    const pub = new solanaWeb3.PublicKey(App.State.pubkey);
+                    const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+                    const TOKEN_2022_PROGRAM_ID = new solanaWeb3.PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+                    
+                    try {
+                        const [resStandard, res2022] = await Promise.all([
+                            conn.getParsedTokenAccountsByOwner(pub, { programId: TOKEN_PROGRAM_ID }),
+                            conn.getParsedTokenAccountsByOwner(pub, { programId: TOKEN_2022_PROGRAM_ID })
+                        ]);
                         
-                        App.UI.showToast(successMsg, "success");
-                        if (document.getElementById('modal-import-spl')) App.UI.closeSheet('modal-import-spl');
-                        else if (document.getElementById('sheet-import-token')) App.UI.closeSheet('sheet-import-token');
+                        let splList = [];
+                        const accountsMap = {};
                         
-                        inputEl.value = ""; statusEl.innerText = "";
-                        this.fetchDashboard(); 
-                    } catch (e) {
-                        statusEl.innerText = isId ? "Terjadi kesalahan internal." : "An internal error occurred.";
-                    } finally {
-                        btn.innerHTML = isId ? '<i class="fa-solid fa-plus"></i> Tambah Token' : '<i class="fa-solid fa-plus"></i> Add Token';
-                    }
+                        // Ekstraksi saldo & Decimals (Wajib untuk transfer SPL)
+                        resStandard.value.forEach(acc => {
+                            const info = acc.account.data.parsed.info;
+                            accountsMap[info.mint] = { amt: info.tokenAmount.uiAmount, dec: info.tokenAmount.decimals, is2022: false };
+                        });
+                        res2022.value.forEach(acc => {
+                            const info = acc.account.data.parsed.info;
+                            accountsMap[info.mint] = { amt: info.tokenAmount.uiAmount, dec: info.tokenAmount.decimals, is2022: true };
+                        });
+
+                        const allMints = [...new Set([...Object.keys(accountsMap), ...App.State.customTokens])];
+
+                        for (const mint of allMints) {
+                            const tInfo = accountsMap[mint] || { amt: 0, dec: 9, is2022: false };
+                            const balance = tInfo.amt;
+                            if (balance === 0 && !App.State.customTokens.includes(mint)) continue;
+
+                            const tokenData = await this.getTokenData(mint);
+
+                            splList.push({
+                                mint: mint, balance: balance, decimals: tInfo.dec, is2022: tInfo.is2022,
+                                usdValue: balance * tokenData.price, price: tokenData.price,
+                                change24h: tokenData.change24h, symbol: tokenData.symbol, 
+                                name: tokenData.name, logo: tokenData.logo
+                            });
+                        }
+                        App.State.balances.spl = splList;
+                    } catch (e) { console.error("Gagal mengambil saldo SPL:", e); }
                 },
 
-                // 4. Utilitas Transaksi
-                setMax() { document.getElementById('tx-amount').value = App.State.balances.sol; },
+                // (Timpa fungsi setMax dengan ini agar bisa mendeteksi limit Max SPL)
+                setMax() { 
+                    const mint = document.getElementById('tx-mint').value;
+                    if (mint === 'native') {
+                        document.getElementById('tx-amount').value = App.State.balances.sol;
+                    } else {
+                        const token = App.State.balances.spl.find(x => x.mint === mint);
+                        if (token) document.getElementById('tx-amount').value = token.balance;
+                    }
+                },
                 
+                // (Timpa fungsi simulateTx dengan MESIN RAW SPL ini)
                 async simulateTx() {
                     const to = document.getElementById('tx-to').value.trim();
                     const amt = parseFloat(document.getElementById('tx-amount').value);
-                    if(!to || amt<=0 || amt>App.State.balances.sol) return App.UI.showToast("Invalid Amount", "error");
+                    const mintInput = document.getElementById('tx-mint').value;
+                    
+                    let maxBal = 0; let decimals = 9; let is2022 = false; let symbol = "SOL";
+                    
+                    if (mintInput === 'native') {
+                        maxBal = App.State.balances.sol;
+                    } else {
+                        const splToken = App.State.balances.spl.find(x => x.mint === mintInput);
+                        if(splToken) {
+                            maxBal = splToken.balance; decimals = splToken.decimals;
+                            is2022 = splToken.is2022; symbol = splToken.symbol;
+                        }
+                    }
+
+                    if(!to || amt<=0 || amt>maxBal) return App.UI.showToast("Invalid Amount / Saldo tidak cukup", "error");
                     
                     document.getElementById('btn-review').innerHTML = '<div class="loader"></div>';
                     try {
@@ -943,56 +999,96 @@ function formatChange(change) {
                         const fromPub = new solanaWeb3.PublicKey(App.State.pubkey);
                         const toPub = new solanaWeb3.PublicKey(to);
                         const { blockhash } = await conn.getLatestBlockhash();
+                        const tx = new solanaWeb3.Transaction({ recentBlockhash: blockhash, feePayer: fromPub });
                         
-                        const tx = new solanaWeb3.Transaction({ recentBlockhash: blockhash, feePayer: fromPub }).add(
-                            solanaWeb3.SystemProgram.transfer({ fromPubkey: fromPub, toPubkey: toPub, lamports: Math.floor(amt * solanaWeb3.LAMPORTS_PER_SOL) })
-                        );
+                        if (mintInput === 'native') {
+                            tx.add(solanaWeb3.SystemProgram.transfer({ fromPubkey: fromPub, toPubkey: toPub, lamports: Math.floor(amt * solanaWeb3.LAMPORTS_PER_SOL) }));
+                        } else {
+                            // SIHIR RAW SPL TOKEN TRANFER 
+                            const mintPub = new solanaWeb3.PublicKey(mintInput);
+                            const TOKEN_PROG = is2022 ? new solanaWeb3.PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb") : new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+                            const ATA_PROG = new solanaWeb3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+                            
+                            const [fromATA] = await solanaWeb3.PublicKey.findProgramAddress([fromPub.toBytes(), TOKEN_PROG.toBytes(), mintPub.toBytes()], ATA_PROG);
+                            const [toATA] = await solanaWeb3.PublicKey.findProgramAddress([toPub.toBytes(), TOKEN_PROG.toBytes(), mintPub.toBytes()], ATA_PROG);
+                            
+                            // 1. Buat ATA untuk penerima jika belum ada
+                            const toAtaInfo = await conn.getAccountInfo(toATA);
+                            if (!toAtaInfo) {
+                                tx.add(new solanaWeb3.TransactionInstruction({
+                                    keys: [
+                                        { pubkey: fromPub, isSigner: true, isWritable: true },
+                                        { pubkey: toATA, isSigner: false, isWritable: true },
+                                        { pubkey: toPub, isSigner: false, isWritable: false },
+                                        { pubkey: mintPub, isSigner: false, isWritable: false },
+                                        { pubkey: solanaWeb3.SystemProgram.programId, isSigner: false, isWritable: false },
+                                        { pubkey: TOKEN_PROG, isSigner: false, isWritable: false },
+                                    ],
+                                    programId: ATA_PROG, data: new Uint8Array(0)
+                                }));
+                            }
+                            
+                            // 2. Raw TransferChecked Instruction (Byte Data Serialization)
+                            const data = new Uint8Array(10);
+                            data[0] = 12; // Index 12: TransferChecked
+                            const view = new DataView(data.buffer);
+                            view.setBigUint64(1, BigInt(Math.floor(amt * Math.pow(10, decimals))), true);
+                            data[9] = decimals;
+
+                            tx.add(new solanaWeb3.TransactionInstruction({
+                                keys: [
+                                    { pubkey: fromATA, isSigner: false, isWritable: true },
+                                    { pubkey: mintPub, isSigner: false, isWritable: false },
+                                    { pubkey: toATA, isSigner: false, isWritable: true },
+                                    { pubkey: fromPub, isSigner: true, isWritable: false }
+                                ],
+                                programId: TOKEN_PROG, data: data
+                            }));
+                        }
                         
                         const sim = await conn.simulateTransaction(tx, [fromPub]);
                         if(sim.value.err) throw new Error("Simulation Error");
                         
                         App.State.tempTx = { tx, to, amt };
                         App.UI.closeSheet('sheet-send');
-                        App.UI.confirm("Confirm Send", `Send ${amt} SOL to<br><span style="font-size:11px;word-break:break-all;color:var(--text-muted);">${to}</span>?`, () => {
+                        App.UI.confirm("Confirm Send", `Kirim ${amt} ${symbol} ke<br><span style="font-size:11px;word-break:break-all;color:var(--text-muted);">${to}</span>?`, () => {
                             App.UI.openSheet('sheet-tx-pin');
                         });
-                    } catch(e) { App.UI.showToast("Simulation Failed. Check balance.", "error"); }
+                    } catch(e) { App.UI.showToast("Gagal. Pastikan saldo SOL cukup untuk gas.", "error"); }
                     finally { document.getElementById('btn-review').innerHTML = 'Review Send <i class="fa-solid fa-arrow-right"></i>'; }
                 },
-                
-                async executeTx(privStr) {
-                    App.UI.showToast("Transmitting to Mainnet...", "info");
-                    try {
-                        const kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(privStr)));
-                        const conn = this.getConnection();
-                        const sig = await solanaWeb3.sendAndConfirmTransaction(conn, App.State.tempTx.tx, [kp]);
-                        App.UI.showToast("Tx Success! " + sig.slice(0,8));
-                        App.State.tempTx = null; // Typo terpotong sudah diperbaiki di sini
-                        this.fetchDashboard();
-                    } catch(e) { App.UI.showToast("Transaction Failed", "error"); }
-                    finally { App.UI.hideLoader(); }
-                },
 
-                // Receive Flow & QR
+                // (Timpa fungsi generateQR agar fitur amount hilang saat SPL aktif)
                 generateQR() {
                     const c = document.getElementById('qr-container'); 
-                    if (!c) return; // Prevent error if DOM is not ready
+                    if (!c) return;
                     c.innerHTML = '';
-                    const a = document.getElementById('rx-amount').value;
+                    
+                    const rxInputEl = document.getElementById('rx-amount');
+                    const mintInput = document.getElementById('tx-mint');
+                    const isSpl = mintInput && mintInput.value !== 'native';
+                    
+                    // Sembunyikan form input amount jika token SPL yang dipilih
+                    if (rxInputEl) {
+                        rxInputEl.style.display = isSpl ? 'none' : 'block';
+                        if(rxInputEl.previousElementSibling && rxInputEl.previousElementSibling.tagName === 'LABEL') {
+                            rxInputEl.previousElementSibling.style.display = isSpl ? 'none' : 'block';
+                        }
+                    }
+
+                    const a = rxInputEl ? rxInputEl.value : 0;
                     let txt = `solana:${App.State.pubkey}`; 
-                    if(a && a>0) txt += `?amount=${a}`;
+                    
+                    // Cegah payload ?amount= disuntikkan ke URL jika ini mode SPL
+                    if(a && a > 0 && !isSpl) txt += `?amount=${a}`;
                     
                     new QRCode(c, { 
-                        text: txt, 
-                        width: 220, 
-                        height: 220, 
-                        correctLevel: QRCode.CorrectLevel.H,
-                        
-                        // Cukup tambahkan 2 baris ini dari kode asli Anda:
+                        text: txt, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.H,
                         logo: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
                         crossOrigin: "anonymous"
                     });
                 },
+                
                 downloadQR() {
                     const cvs = document.querySelector('#qr-container canvas');
                     if(!cvs) return;
@@ -1173,60 +1269,69 @@ function formatChange(change) {
                     App.Network.fetchDashboard();
                     App.Network.generateQR();
                 },
-                                renderDashboard() {
+                    // (Tambahkan fungsi ini tepat di bawah showLoader / hideLoader)
+                openAssetAction(mint, symbol) {
+                    document.getElementById('tx-mint').value = mint;
+                    const html = `
+                        <div style="display:flex; gap:10px; margin-top:15px;">
+                            <button class="btn btn-primary" style="flex:1;" onclick="App.UI.closeSheet('sys-dialog'); document.getElementById('tx-amount').value=''; App.UI.openSheet('sheet-send');">
+                                <i class="fa-solid fa-paper-plane"></i> Send
+                            </button>
+                            <button class="btn btn-secondary" style="flex:1;" onclick="App.UI.closeSheet('sys-dialog'); App.UI.openSheet('sheet-receive'); App.Network.generateQR();">
+                                <i class="fa-solid fa-qrcode"></i> Receive
+                            </button>
+                        </div>
+                    `;
+                    this.alert(`Aksi: ${symbol}`, html);
+                },
+
+                // (Ganti renderDashboard lama Anda dengan ini)
+                renderDashboard() {
                     const s = App.State.balances;
                     
-                    // Kalkulasi Fiat Total (SOL + All SPL Tokens)
                     const totalSplUsd = s.spl ? s.spl.reduce((sum, token) => sum + token.usdValue, 0) : 0;
                     const grandTotalUsd = s.usd + totalSplUsd;
                     
                     document.getElementById('dash-fiat').innerText = `$${grandTotalUsd.toFixed(2)}`;
                     document.getElementById('tx-max-bal').innerText = s.sol.toFixed(4);
                     
-                    // 1. Render Solana Native (Ditambah margin-bottom 10px)
+                    // 1. SOL Native (Sekarang bisa diklik untuk memunculkan menu)
                     let html = `
-                        <div class="glass list-item" onclick="App.UI.openSheet('sheet-send'); document.getElementById('tx-mint').value = 'native';" style="margin-bottom: 10px;">
+                        <div class="glass list-item" onclick="App.UI.openAssetAction('native', 'Solana (SOL)')" style="margin-bottom: 10px;">
                             <div class="item-icon" style="background:transparent; border:none; padding:0;">
                                 <img src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" alt="SOL">
                             </div>
                             <div class="item-info">
-                                <div class="item-title" style="display:flex; align-items:center;">
-                                    Solana ${formatChange(s.solChange)}
-                                </div>
+                                <div class="item-title" style="display:flex; align-items:center;">Solana ${formatChange(s.solChange)}</div>
                                 <div class="item-sub text-green">Native Coin</div>
                             </div>
                             <div class="item-value">
-                                <div class="val-title">${s.sol.toFixed(4)} SOL</div>
-                                <div class="val-sub">$${s.usd.toFixed(2)}</div>
+                                <div class="val-title">${s.sol.toFixed(4)} SOL</div><div class="val-sub">$${s.usd.toFixed(2)}</div>
                             </div>
                         </div>
                     `;
                     
-                    // 2. Render SPL Tokens (Ditambah margin-bottom 10px)
+                    // 2. SPL Tokens (Sekarang bisa diklik untuk memunculkan menu)
                     if (s.spl && s.spl.length > 0) {
                         s.spl.forEach(token => {
                             html += `
-                                <div class="glass list-item" onclick="App.UI.showToast('Transfer fitur SPL coming soon!')" style="margin-bottom: 10px;">
+                                <div class="glass list-item" onclick="App.UI.openAssetAction('${token.mint}', '${token.symbol}')" style="margin-bottom: 10px;">
                                     <div class="item-icon" style="background:transparent; border:none; padding:0;">
                                         <img src="${token.logo}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" onerror="this.src='https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png'">
                                     </div>
                                     <div class="item-info">
-                                        <div class="item-title" style="display:flex; align-items:center;">
-                                            ${token.symbol} ${formatChange(token.change24h)}
-                                        </div>
+                                        <div class="item-title" style="display:flex; align-items:center;">${token.symbol} ${formatChange(token.change24h)}</div>
                                         <div class="item-sub text-muted">${token.name}</div>
                                     </div>
                                     <div class="item-value">
-                                        <div class="val-title">${token.balance.toLocaleString('en-US', {maximumFractionDigits: 4})}</div>
-                                        <div class="val-sub">$${token.usdValue.toFixed(2)}</div>
+                                        <div class="val-title">${token.balance.toLocaleString('en-US', {maximumFractionDigits: 4})}</div><div class="val-sub">$${token.usdValue.toFixed(2)}</div>
                                     </div>
                                 </div>
                             `;
                         });
                     }
-                    
                     document.getElementById('asset-list').innerHTML = html;
-                                }
+                }
             },
             Init() { 
                 if(App.State.wallets.length > 0) App.Auth.initLogin(); 
