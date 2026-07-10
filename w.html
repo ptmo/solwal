@@ -1183,9 +1183,9 @@ function formatChange(change) {
                     document.getElementById('dash-fiat').innerText = `$${grandTotalUsd.toFixed(2)}`;
                     document.getElementById('tx-max-bal').innerText = s.sol.toFixed(4);
                     
-                    // 1. Render Solana Native (Dengan Logo Image Asli & Persentase Naik/Turun)
+                    // 1. Render Solana Native (Ditambah margin-bottom 10px)
                     let html = `
-                        <div class="glass list-item" onclick="App.UI.openSheet('sheet-send'); document.getElementById('tx-mint').value = 'native';">
+                        <div class="glass list-item" onclick="App.UI.openSheet('sheet-send'); document.getElementById('tx-mint').value = 'native';" style="margin-bottom: 10px;">
                             <div class="item-icon" style="background:transparent; border:none; padding:0;">
                                 <img src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" alt="SOL">
                             </div>
@@ -1202,11 +1202,11 @@ function formatChange(change) {
                         </div>
                     `;
                     
-                    // 2. Render SPL Tokens (Dengan Persentase Naik/Turun)
+                    // 2. Render SPL Tokens (Ditambah margin-bottom 10px)
                     if (s.spl && s.spl.length > 0) {
                         s.spl.forEach(token => {
                             html += `
-                                <div class="glass list-item" onclick="App.UI.showToast('Transfer fitur SPL coming soon!')">
+                                <div class="glass list-item" onclick="App.UI.showToast('Transfer fitur SPL coming soon!')" style="margin-bottom: 10px;">
                                     <div class="item-icon" style="background:transparent; border:none; padding:0;">
                                         <img src="${token.logo}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;" onerror="this.src='https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png'">
                                     </div>
@@ -1227,10 +1227,6 @@ function formatChange(change) {
                     
                     document.getElementById('asset-list').innerHTML = html;
                                 }
-            },
-
-            Init() { if(App.State.wallets.length > 0) App.Auth.initLogin(); }
-        };
 
         window.onload = () => App.Init();
     </script>
