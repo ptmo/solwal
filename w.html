@@ -863,7 +863,6 @@ function formatChange(change) {
                 },
 
                 async fetchHistory(isPagination = false) {
-                    // 1. Inisialisasi State Dinamis & Proteksi Spam Fetching
                     App.State.historyList = App.State.historyList || [];
                     App.State.historyLastSig = App.State.historyLastSig || null;
                     if (App.State.isFetchingHistory) return;
@@ -872,42 +871,31 @@ function formatChange(change) {
                     const isId = App.State.lang === 'ID';
                     const txListEl = document.getElementById('tx-list');
                     
-                    // 2. Tampilkan Loader
                     if (!isPagination) {
                         App.State.historyList = [];
                         App.State.historyLastSig = null;
                         if (txListEl) txListEl.innerHTML = `<div class="loader" style="margin:40px auto;"></div>`;
                     } else {
-                        if (txListEl) txListEl.innerHTML += `<div id="history-loader" class="loader" style="margin:20px auto;"></div>`;
+                        // Tampilkan loader mini saat menarik data scroll ke bawah
+                        if (txListEl) txListEl.innerHTML += `<div id="history-loader" style="text-align:center; padding:15px; color:var(--primary);"><div class="loader" style="display:inline-block; width:20px; height:20px; border-width:2px;"></div></div>`;
                     }
 
-                    // 3. FIX INFINITE SCROLL: Deteksi scroll pada elemen spesifik yang membungkus riwayat
-                    if (!App.State.historyScrollBound) {
-                        // Cari kontainer utama aplikasi yang bisa di-scroll (sesuaikan dengan id/class CSS Anda jika perlu)
-                        // Biasanya ini adalah window atau elemen dengan overflow-y: auto
-                        window.addEventListener('scroll', () => {
-                            // Hanya memicu fetch jika tab history sedang aktif dilihat (txListEl terlihat)
-                            if (txListEl && txListEl.offsetParent !== null) {
-                                // Menggunakan perhitungan yang lebih sensitif dan kompatibel dengan berbagai browser mobile
-                                const scrollableHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
-                                const scrollPosition = window.innerHeight + window.scrollY;
-                                
-                                // Jika jarak scroll ke bawah tersisa kurang dari 300px, panggil data berikutnya
-                                if (scrollPosition >= scrollableHeight - 300) {
-                                    this.fetchHistory(true); 
-                                }
+                    // 3. FIX: MENGGUNAKAN INTERSECTION OBSERVER (Sensor Laser Modern)
+                    if (!App.State.historyObserver) {
+                        App.State.historyObserver = new IntersectionObserver((entries) => {
+                            // Jika elemen 'sentinel' (di paling bawah) masuk ke dalam layar...
+                            if (entries[0].isIntersecting && !App.State.isFetchingHistory && App.State.historyLastSig) {
+                                this.fetchHistory(true); // ...Tarik data otomatis!
                             }
-                        }, { passive: true }); // passive: true meningkatkan performa scroll di HP
-                        
-                        App.State.historyScrollBound = true;
+                        }, { rootMargin: "300px" }); // Sensitivitas 300px sebelum mentok bawah
                     }
 
                     try {
                         const conn = this.getConnection();
                         const pub = new solanaWeb3.PublicKey(App.State.pubkey);
                         
-                        // Limit Halaman: Awal 10, Scroll selanjutnya 15
-                        const options = { limit: isPagination ? 15 : 10 };
+                        // FIX: Perbesar jaring tarikan RPC untuk mengimbangi transaksi spam/gas yang difilter
+                        const options = { limit: isPagination ? 30 : 25 };
                         if (App.State.historyLastSig) options.before = App.State.historyLastSig;
 
                         const sigs = await conn.getSignaturesForAddress(pub, options);
@@ -922,7 +910,6 @@ function formatChange(change) {
 
                         App.State.historyLastSig = sigs[sigs.length - 1].signature;
 
-                        // Tarik Data Parsed (Membongkar Metadata Transaksi)
                         const parsedTxs = await conn.getParsedTransactions(sigs.map(s => s.signature), { maxSupportedTransactionVersion: 0 });
                         const newHistory = [];
                         
@@ -934,11 +921,9 @@ function formatChange(change) {
                             let type = 'unknown'; let amount = 0; let symbol = 'SOL';
                             let sender = tx.transaction.message.accountKeys[0].pubkey.toBase58();
                             
-                            // Mendeteksi Penerima (Wallet Writable pertama selain Sender)
                             const rxKey = tx.transaction.message.accountKeys.find((k, idx) => idx > 0 && k.writable && !k.signer);
                             let receiver = rxKey ? rxKey.pubkey.toBase58() : (isId ? 'Kontrak Sistem' : 'System Contract');
                             
-                            // A. Deteksi Saldo SPL Token
                             const preToken = (tx.meta.preTokenBalances || []).find(t => t.owner === App.State.pubkey);
                             const postToken = (tx.meta.postTokenBalances || []).find(t => t.owner === App.State.pubkey);
                             
@@ -956,7 +941,6 @@ function formatChange(change) {
                                 }
                             } 
                             
-                            // B. Deteksi Saldo Native SOL (Jika bukan Token SPL)
                             if (amount === 0) {
                                 const accIdx = tx.transaction.message.accountKeys.findIndex(k => k.pubkey.toBase58() === App.State.pubkey);
                                 if (accIdx !== -1) {
@@ -964,7 +948,6 @@ function formatChange(change) {
                                     const postBal = tx.meta.postBalances[accIdx];
                                     const diff = (postBal - preBal) / solanaWeb3.LAMPORTS_PER_SOL;
                                     
-                                    // Sembunyikan gas fee (potongan di bawah 0.0005) agar rapi
                                     if (Math.abs(diff) > 0.0005) {
                                         amount = Math.abs(diff);
                                         type = diff < 0 ? 'send' : 'receive';
@@ -989,6 +972,47 @@ function formatChange(change) {
                         if (!isPagination && txListEl) txListEl.innerHTML = `<p class="subtitle text-center mt-24 text-red">History sync failed.</p>`;
                     } finally {
                         App.State.isFetchingHistory = false;
+                    }
+                },
+
+                renderHistory() {
+                    const isId = App.State.lang === 'ID';
+                    let html = App.State.historyList.map(tx => {
+                        const isSend = tx.type === 'send';
+                        const icon = isSend ? 'fa-arrow-up' : 'fa-arrow-down';
+                        const color = isSend ? '#ff3d00' : '#00c853';
+                        const title = isSend ? (isId ? 'Kirim' : 'Send') : (isId ? 'Terima' : 'Receive');
+                        const dateObj = new Date(tx.date);
+                        const dateStr = dateObj.toLocaleString(isId ? 'id-ID' : 'en-US', { dateStyle: 'short', timeStyle: 'medium' });
+                        
+                        const txData = encodeURIComponent(JSON.stringify(tx));
+
+                        return `
+                            <div class="glass list-item" style="margin-bottom: 10px; cursor: pointer;" onclick="App.UI.showTxDetail('${txData}')">
+                                <div class="item-icon" style="color:${color}; background:transparent; border:2px solid ${color}40; display:flex; justify-content:center; align-items:center;">
+                                    <i class="fa-solid ${icon}"></i>
+                                </div>
+                                <div class="item-info">
+                                    <div class="item-title">${tx.isErr ? '<i class="fa-solid fa-triangle-exclamation text-red"></i> ' : ''}${title} ${tx.symbol}</div>
+                                    <div class="item-sub">${dateStr}</div>
+                                </div>
+                                <div class="item-value">
+                                    <div class="val-title" style="color:${color};">${isSend ? '-' : '+'}${tx.amount.toLocaleString(undefined, {maximumFractionDigits: 4})}</div>
+                                    <div class="val-sub" style="text-align: right;">${tx.symbol}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    // FIX: Sisipkan elemen "Sentinel" (Sensor) di bagian paling bawah daftar
+                    html += `<div id="history-sentinel" style="height: 1px; width: 100%;"></div>`;
+                    
+                    document.getElementById('tx-list').innerHTML = html;
+
+                    // Mengaktifkan sensor laser pada elemen Sentinel yang baru dibuat
+                    const sentinel = document.getElementById('history-sentinel');
+                    if (sentinel && App.State.historyObserver) {
+                        App.State.historyObserver.observe(sentinel);
                     }
                 },
                 
