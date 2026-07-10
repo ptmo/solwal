@@ -650,6 +650,49 @@ function formatChange(change) {
                     App.UI.showToast("Format tidak valid. Gunakan JSON, Phrase, atau Base58.", "error"); 
                 }
         }
+
+                // Fungsi Mengubah Nama Dompet
+                renameWallet(id) {
+                    const wallet = App.State.wallets.find(w => w.id === id);
+                    if (!wallet) return;
+                    
+                    // Menggunakan prompt bawaan browser agar ringan dan cepat
+                    const newName = prompt("Masukkan nama baru untuk dompet ini:", wallet.name);
+                    
+                    if (newName && newName.trim() !== "") {
+                        wallet.name = newName.trim();
+                        localStorage.setItem('sol_wallets', JSON.stringify(App.State.wallets));
+                        App.UI.initDashboard(); // Render ulang daftar agar nama baru langsung muncul
+                        App.UI.showToast("Nama dompet berhasil diubah!");
+                    }
+                },
+
+                // Fungsi Menghapus Dompet
+                deleteWallet(id) {
+                    // Cegah penghapusan jika ini adalah satu-satunya dompet yang tersisa
+                    if (App.State.wallets.length <= 1) {
+                        App.UI.showToast("Tidak bisa menghapus satu-satunya dompet!", "error");
+                        return;
+                    }
+                    
+                    App.UI.confirm("Hapus Dompet", "Yakin ingin menghapus dompet ini? Pastikan Anda sudah mem-backup Private Key / Seed Phrase!", () => {
+                        // Filter (buang) dompet yang dipilih dari memori
+                        App.State.wallets = App.State.wallets.filter(w => w.id !== id);
+                        
+                        // Jika dompet yang dihapus kebetulan sedang dipakai (aktif), pindahkan paksa ke dompet urutan pertama
+                        if (App.State.activeId === id) {
+                            App.State.activeId = App.State.wallets[0].id;
+                            localStorage.setItem('sol_active', App.State.activeId);
+                        }
+                        
+                        // Simpan data baru
+                        localStorage.setItem('sol_wallets', JSON.stringify(App.State.wallets));
+                        App.UI.showToast("Dompet berhasil dihapus!", "success");
+                        
+                        // Reload otomatis agar saldo dan data dompet baru termuat dengan benar
+                        setTimeout(() => window.location.reload(), 500);
+                    });
+                },
             },
 
             // Authentication & Security
@@ -1260,13 +1303,31 @@ function formatChange(change) {
                     document.getElementById('dash-wallet-name').innerText = activeW.name;
                     document.getElementById('dash-address').innerText = activeW.pub.slice(0,4)+'...'+activeW.pub.slice(-4);
                     document.getElementById('rx-address').value = activeW.pub;
-                    
+
                     // Render Wallet Manager List
                     document.getElementById('wallet-list-ui').innerHTML = App.State.wallets.map(w => `
-                        <div class="list-item" onclick="App.State.activeId='${w.id}'; localStorage.setItem('sol_active','${w.id}'); window.location.reload();">
-                            <div class="item-icon" style="color:var(--primary);"><i class="fa-solid fa-wallet"></i></div>
-                            <div class="item-info"><div class="item-title">${w.name}</div><div class="item-sub">${w.pub.slice(0,6)}...</div></div>
-                            ${w.id === App.State.activeId ? '<i class="fa-solid fa-check text-green"></i>' : ''}
+                        <div class="list-item" style="display:flex; justify-content:space-between; align-items:center;">
+                            
+                            <!-- Bagian Kiri: Info Dompet (Bisa diklik untuk pindah) -->
+                            <div style="display:flex; align-items:center; flex:1; cursor:pointer;" onclick="App.State.activeId='${w.id}'; localStorage.setItem('sol_active','${w.id}'); window.location.reload();">
+                                <div class="item-icon" style="color:var(--primary);"><i class="fa-solid fa-wallet"></i></div>
+                                <div class="item-info">
+                                    <div class="item-title">${w.name}</div>
+                                    <div class="item-sub">${w.pub.slice(0,4)}...${w.pub.slice(-4)}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Bagian Kanan: Aksi (Edit, Hapus, Status Aktif) -->
+                            <div style="display:flex; gap:16px; align-items:center;">
+                                ${w.id === App.State.activeId ? '<i class="fa-solid fa-check text-green"></i>' : ''}
+                                
+                                <i class="fa-solid fa-pen" style="color:var(--text-muted); font-size:16px; cursor:pointer;" 
+                                   onclick="event.stopPropagation(); App.Wallet.renameWallet('${w.id}');"></i>
+                                   
+                                <i class="fa-solid fa-trash" style="color:#ff3d00; font-size:16px; cursor:pointer;" 
+                                   onclick="event.stopPropagation(); App.Wallet.deleteWallet('${w.id}');"></i>
+                            </div>
+                            
                         </div>
                     `).join('');
                     
