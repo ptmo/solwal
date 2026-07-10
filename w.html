@@ -861,6 +861,7 @@ function formatChange(change) {
                     
                     App.UI.openSheet('sheet-send');
                 },
+
                 async fetchHistory(isPagination = false) {
                     // 1. Inisialisasi State Dinamis & Proteksi Spam Fetching
                     App.State.historyList = App.State.historyList || [];
@@ -875,20 +876,29 @@ function formatChange(change) {
                     if (!isPagination) {
                         App.State.historyList = [];
                         App.State.historyLastSig = null;
-                        txListEl.innerHTML = `<div class="loader" style="margin:40px auto;"></div>`;
+                        if (txListEl) txListEl.innerHTML = `<div class="loader" style="margin:40px auto;"></div>`;
                     } else {
-                        txListEl.innerHTML += `<div id="history-loader" class="loader" style="margin:20px auto;"></div>`;
+                        if (txListEl) txListEl.innerHTML += `<div id="history-loader" class="loader" style="margin:20px auto;"></div>`;
                     }
 
-                    // 3. Pasang Infinite Scroll Secara Otomatis (Hanya 1x)
+                    // 3. FIX INFINITE SCROLL: Deteksi scroll pada elemen spesifik yang membungkus riwayat
                     if (!App.State.historyScrollBound) {
+                        // Cari kontainer utama aplikasi yang bisa di-scroll (sesuaikan dengan id/class CSS Anda jika perlu)
+                        // Biasanya ini adalah window atau elemen dengan overflow-y: auto
                         window.addEventListener('scroll', () => {
+                            // Hanya memicu fetch jika tab history sedang aktif dilihat (txListEl terlihat)
                             if (txListEl && txListEl.offsetParent !== null) {
-                                if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
-                                    this.fetchHistory(true); // Panggil halaman berikutnya
+                                // Menggunakan perhitungan yang lebih sensitif dan kompatibel dengan berbagai browser mobile
+                                const scrollableHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
+                                const scrollPosition = window.innerHeight + window.scrollY;
+                                
+                                // Jika jarak scroll ke bawah tersisa kurang dari 300px, panggil data berikutnya
+                                if (scrollPosition >= scrollableHeight - 300) {
+                                    this.fetchHistory(true); 
                                 }
                             }
-                        });
+                        }, { passive: true }); // passive: true meningkatkan performa scroll di HP
+                        
                         App.State.historyScrollBound = true;
                     }
 
@@ -903,7 +913,7 @@ function formatChange(change) {
                         const sigs = await conn.getSignaturesForAddress(pub, options);
                         
                         if (sigs.length === 0) {
-                            if (!isPagination) txListEl.innerHTML = `<p class="subtitle text-center mt-24">${isId ? 'Belum ada transaksi.' : 'No transactions found.'}</p>`;
+                            if (!isPagination && txListEl) txListEl.innerHTML = `<p class="subtitle text-center mt-24">${isId ? 'Belum ada transaksi.' : 'No transactions found.'}</p>`;
                             const loader = document.getElementById('history-loader');
                             if (loader) loader.remove();
                             App.State.isFetchingHistory = false;
@@ -976,12 +986,12 @@ function formatChange(change) {
 
                     } catch(e) {
                         console.error("History Error:", e);
-                        if (!isPagination) document.getElementById('tx-list').innerHTML = `<p class="subtitle text-center mt-24 text-red">History sync failed.</p>`;
+                        if (!isPagination && txListEl) txListEl.innerHTML = `<p class="subtitle text-center mt-24 text-red">History sync failed.</p>`;
                     } finally {
                         App.State.isFetchingHistory = false;
                     }
                 },
-
+                
                 renderHistory() {
                     const isId = App.State.lang === 'ID';
                     const html = App.State.historyList.map(tx => {
