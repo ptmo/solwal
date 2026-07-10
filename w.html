@@ -526,25 +526,116 @@ function formatChange(change) {
             Wallet: {
                 tempData: null,
                 
-                // 1. Tambahkan fungsi bs58Decode ini di dalam objek App.Wallet
-        bs58Decode(str) {
-            const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-            let bytes = [0];
-            for (let i = 0; i < str.length; i++) {
-                const c = ALPHABET.indexOf(str[i]);
-                if (c < 0) throw new Error("Invalid base58");
-                let carry = c;
-                for (let j = 0; j < bytes.length; j++) {
-                    carry += bytes[j] * 58;
-                    bytes[j] = carry & 0xff;
-                    carry >>= 8;
-                }
-                while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8; }
-            }
-            // Tangani leading zeros
-            for (let i = 0; i < str.length && str[i] === '1'; i++) bytes.push(0);
-            return new Uint8Array(bytes.reverse());
-        },
+                // --- AWAL KODE BARU DI App.Wallet ---
+
+                // 1. Algoritma Pengubah Array JSON [1,2,3...] menjadi teks Base58 standar Solana
+                bs58Encode(buffer) {
+                    const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+                    if (buffer.length === 0) return "";
+                    let digits = [0];
+                    for (let i = 0; i < buffer.length; i++) {
+                        let carry = buffer[i];
+                        for (let j = 0; j < digits.length; j++) {
+                            carry += digits[j] << 8;
+                            digits[j] = carry % 58;
+                            carry = (carry / 58) | 0;
+                        }
+                        while (carry > 0) { digits.push(carry % 58); carry = (carry / 58) | 0; }
+                    }
+                    let string = "";
+                    for (let i = 0; i < buffer.length && buffer[i] === 0; i++) string += "1";
+                    for (let i = digits.length - 1; i >= 0; i--) string += ALPHABET[digits[i]];
+                    return string;
+                },
+
+                // 2. Fungsi Unduh File JSON Asli
+                downloadRawJson(encodedData) {
+                    const data = decodeURIComponent(encodedData);
+                    const blob = new Blob([data], {type: "application/json"});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); 
+                    a.href = url; 
+                    const activeW = App.State.wallets.find(x => x.id === App.State.activeId);
+                    a.download = `MySolWallet_${activeW.pub.slice(0,6)}.json`;
+                    a.click(); 
+                    URL.revokeObjectURL(url);
+                    App.UI.showToast(App.State.lang === 'ID' ? 'JSON Berhasil Diunduh' : 'JSON Downloaded');
+                },
+
+                // 3. Lapisan Konfirmasi Niat & PIN
+                confirmExport(type) {
+                    const isId = App.State.lang === 'ID';
+                    const title = isId ? 'Peringatan Keamanan' : 'Security Warning';
+                    const msg = isId 
+                        ? 'Apakah Anda yakin ingin mengekspor data rahasia ini? Jangan pernah perlihatkan layar ini kepada siapapun!' 
+                        : 'Are you sure you want to export this secret data? Never show this screen to anyone!';
+                        
+                    App.UI.confirm(title, msg, () => {
+                        App.UI.promptPassword(isId ? 'Konfirmasi PIN' : 'Confirm PIN', (pin) => {
+                            this.executeExport(type, pin);
+                        });
+                    });
+                },
+
+                // 4. Pembongkar Enkripsi (Menampilkan Data)
+                async executeExport(type, pin) {
+                    App.UI.showLoader();
+                    const isId = App.State.lang === 'ID';
+                    
+                    try {
+                        const activeW = App.State.wallets.find(x => x.id === App.State.activeId);
+                        const privStr = await App.Crypto.decrypt(activeW.enc, pin);
+                        if (!privStr) throw new Error("Invalid PIN");
+                        
+                        const privArr = JSON.parse(privStr); // Format array [12,34,55...]
+                        
+                        let resultText = ''; let title = ''; let isDownload = false;
+                        
+                        if (type === 'phrase') {
+                            title = isId ? 'Seed Phrase' : 'Seed Phrase';
+                            resultText = isId 
+                                ? 'Sistem kami bersifat 100% Non-Kustodian. Demi keamanan maksimum, Seed Phrase (Kata Sandi) tidak pernah kami simpan dan telah dihapus secara permanen dari memori setelah dompet dibuat. Silakan gunakan opsi ekspor <b>Private Key (Base58)</b> untuk memulihkan dompet Anda di Phantom/Solflare.'
+                                : 'Our system is 100% Non-Custodial. For maximum security, the Seed Phrase is never stored and was permanently purged from memory after creation. Please use the <b>Private Key (Base58)</b> export option to recover your wallet in Phantom/Solflare.';
+                        } else if (type === 'base58') {
+                            title = isId ? 'Private Key (Base58)' : 'Private Key (Base58)';
+                            resultText = this.bs58Encode(privArr); // Mengubah array jadi format 1234ABC...
+                        } else if (type === 'json') {
+                            title = isId ? 'Keystore JSON' : 'Keystore JSON';
+                            resultText = privStr;
+                            isDownload = true;
+                        }
+                        
+                        const contentHtml = isDownload 
+                            ? `<div style="font-family:monospace; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; word-break:break-all; font-size:12px; max-height:120px; overflow-y:auto; border: 1px solid var(--border);">${resultText}</div>`
+                            : (type === 'phrase' 
+                                ? `<div style="color:var(--text-muted); font-size:14px; line-height:1.6; text-align:left; background:rgba(255,255,255,0.03); padding:15px; border-radius:8px;">${resultText}</div>` 
+                                : `<div style="font-family:monospace; color:var(--primary); background:rgba(255,255,255,0.05); padding:18px; border-radius:8px; word-break:break-all; font-size:16px; user-select:all; border: 1px solid var(--border);">${resultText}</div>`);
+
+                        const btnHtml = isDownload
+                            ? `<button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="App.Wallet.downloadRawJson('${encodeURIComponent(resultText)}')"><i class="fa-solid fa-download"></i> ${isId ? 'Unduh File JSON' : 'Download JSON File'}</button>`
+                            : (type === 'phrase' ? '' : `<button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="App.UI.copyText('${resultText}')"><i class="fa-regular fa-copy"></i> ${isId ? 'Salin Key' : 'Copy Key'}</button>`);
+
+                        document.getElementById('dialog-icon').innerHTML = `
+                            <i class="fa-solid fa-xmark" onclick="App.UI.closeSheet('sys-dialog')" style="position: absolute; top: 16px; right: 20px; font-size: 24px; color: var(--text-muted); cursor: pointer;"></i>
+                            <i class="fa-solid fa-triangle-exclamation text-red" style="font-size:28px; margin-top:5px;"></i>
+                        `;
+                        document.getElementById('dialog-title').innerText = title;
+                        document.getElementById('dialog-msg').innerHTML = `
+                            <div style="color:#ff3d00; font-size:13px; font-weight:bold; margin-bottom:15px; background: rgba(255, 61, 0, 0.1); padding: 8px; border-radius: 6px;">
+                                ${isId ? 'PERINGATAN: Jangan pernah membagikan ini!' : 'WARNING: Never share this!'}
+                            </div>
+                            ${contentHtml}
+                            ${btnHtml}
+                        `;
+                        document.getElementById('dialog-actions').innerHTML = '';
+                        App.UI.openSheet('sys-dialog');
+                        
+                    } catch(e) {
+                        App.UI.showToast(isId ? "PIN Salah!" : "Incorrect PIN!", "error");
+                    } finally {
+                        App.UI.hideLoader();
+                    }
+                },
                 
                 async initCreate() {
                 App.UI.showLoader();
@@ -1466,6 +1557,63 @@ function formatChange(change) {
                     };
                     
                     // Paksa z-index
+                    document.getElementById('sys-dialog').style.zIndex = "99999";
+                    this.openSheet('sys-dialog');
+                },
+
+                // --- AWAL KODE BARU DI App.UI ---
+
+                // 1. Menu Pilihan Format Ekspor
+                openExportMenu() {
+                    const isId = App.State.lang === 'ID';
+                    const title = isId ? 'Pilih Format Ekspor' : 'Select Export Format';
+                    
+                    const html = `
+                        <div style="display:flex; flex-direction:column; gap:12px; margin-top:10px;">
+                            <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog'); App.Wallet.confirmExport('phrase')">
+                                <i class="fa-solid fa-seedling"></i> ${isId ? 'Ekspor Phrase (Kata Sandi)' : 'Export Phrase (Mnemonic)'}
+                            </button>
+                            <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog'); App.Wallet.confirmExport('base58')">
+                                <i class="fa-solid fa-key"></i> ${isId ? 'Ekspor Private Key (Base58)' : 'Export Private Key (Base58)'}
+                            </button>
+                            <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog'); App.Wallet.confirmExport('json')">
+                                <i class="fa-solid fa-file-code"></i> ${isId ? 'Unduh Keystore (JSON)' : 'Download Keystore (JSON)'}
+                            </button>
+                        </div>
+                    `;
+                    
+                    document.getElementById('dialog-icon').innerHTML = `
+                        <i class="fa-solid fa-xmark" onclick="App.UI.closeSheet('sys-dialog')" style="position: absolute; top: 16px; right: 20px; font-size: 24px; color: var(--text-muted); cursor: pointer;"></i>
+                        <i class="fa-solid fa-download text-primary" style="font-size:28px; margin-top:5px;"></i>
+                    `;
+                    document.getElementById('dialog-title').innerText = title;
+                    document.getElementById('dialog-msg').innerHTML = html;
+                    document.getElementById('dialog-actions').innerHTML = '';
+                    
+                    document.getElementById('sys-dialog').style.zIndex = "99999";
+                    this.openSheet('sys-dialog');
+                },
+
+                // 2. Prompt Khusus PIN (Input disamarkan dengan bintang/titik)
+                promptPassword(title, onSave) {
+                    const isId = App.State.lang === 'ID';
+                    document.getElementById('dialog-icon').innerHTML = '<i class="fa-solid fa-lock text-primary"></i>';
+                    document.getElementById('dialog-title').innerText = title;
+                    
+                    document.getElementById('dialog-msg').innerHTML = `
+                        <input type="password" id="dialog-pass-input" class="input-box" placeholder="••••••••" style="margin-top:10px; width:100%; box-sizing:border-box; text-align:center; font-size:24px; letter-spacing:4px;">
+                    `;
+                    
+                    document.getElementById('dialog-actions').innerHTML = `
+                        <button class="btn btn-secondary" onclick="App.UI.closeSheet('sys-dialog')">${isId ? 'Batal' : 'Cancel'}</button>
+                        <button class="btn btn-primary" id="dialog-btn-save">${isId ? 'Lanjut' : 'Continue'}</button>`;
+                        
+                    document.getElementById('dialog-btn-save').onclick = () => {
+                        const val = document.getElementById('dialog-pass-input').value;
+                        this.closeSheet('sys-dialog');
+                        onSave(val); 
+                    };
+                    
                     document.getElementById('sys-dialog').style.zIndex = "99999";
                     this.openSheet('sys-dialog');
                 },
