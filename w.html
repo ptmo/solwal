@@ -1227,6 +1227,10 @@ function formatChange(change) {
                     
                     document.getElementById('asset-list').innerHTML = html;
                                 }
+            },
+            Init() { 
+                if(App.State.wallets.length > 0) App.Auth.initLogin(); 
+            }
             };
 
         window.onload = () => App.Init();
