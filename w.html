@@ -961,6 +961,19 @@ function formatChange(change) {
                     }
                 },
 
+                // Fungsi Eksekusi Hapus Token
+                deleteToken(mint) {
+                    // Filter/buang token dari daftar
+                    App.State.customTokens = App.State.customTokens.filter(m => m !== mint);
+                    
+                    // Simpan daftar baru ke LocalStorage
+                    localStorage.setItem('sol_custom_tokens', JSON.stringify(App.State.customTokens));
+                    
+                    // Tampilkan notifikasi & refresh dashboard
+                    App.UI.showToast("Token deleted successfully!", "success");
+                    this.fetchDashboard();
+                },
+
                 // (Timpa fungsi setMax dengan ini agar bisa mendeteksi limit Max SPL)
                 setMax() { 
                     const mint = document.getElementById('tx-mint').value;
@@ -1272,15 +1285,39 @@ function formatChange(change) {
                 openAssetAction(mint, symbol) {
                     document.getElementById('tx-mint').value = mint;
                     
-                    // 1. Injeksi tombol X (Close) di sudut kanan atas & Ikon utama
+                    // 1. Ekstraksi data logo dan nama token dari State
+                    let logoUrl = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
+                    let tokenName = "Solana";
+                    
+                    if (mint !== 'native') {
+                        const tokenInfo = App.State.balances.spl.find(x => x.mint === mint);
+                        if (tokenInfo) {
+                            logoUrl = tokenInfo.logo;
+                            tokenName = tokenInfo.name;
+                        }
+                    }
+
+                    // 2. Injeksi tombol X (Close) dan Gambar Logo Token
                     document.getElementById('dialog-icon').innerHTML = `
                         <i class="fa-solid fa-xmark" onclick="App.UI.closeSheet('sys-dialog')" style="position: absolute; top: 16px; right: 20px; font-size: 24px; color: var(--text-muted); cursor: pointer;"></i>
-                        <i class="fa-solid fa-paper-plane text-primary" style="font-size: 28px; margin-top: 10px;"></i>
+                        <img src="${logoUrl}" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; margin-top: 5px; border: 2px solid var(--border);">
                     `;
                     
-                    document.getElementById('dialog-title').innerText = symbol;
+                    // 3. Render Simbol Token dengan Nama Token di bawahnya
+                    document.getElementById('dialog-title').innerHTML = `${symbol} <div style="font-size: 14px; color: var(--text-muted); font-weight: normal; margin-top: 4px;">${tokenName}</div>`;
                     
-                    // 2. Tambahkan min-width: 80vw agar modal mekar menyesuaikan layar HP
+                    // 4. Logika Tombol Hapus (Hanya muncul jika bukan Native SOL)
+                    let deleteBtnHtml = '';
+                    if (mint !== 'native') {
+                        // Menggunakan setTimeout agar animasi modal tertutup dulu sebelum pop-up konfirmasi muncul
+                        deleteBtnHtml = `
+                            <button class="btn" style="padding:14px; font-size:16px; width:100%; color: #ff3d00; background: rgba(255, 61, 0, 0.1); border: 1px solid #ff3d00;" 
+                                onclick="App.UI.closeSheet('sys-dialog'); setTimeout(() => App.UI.confirm('Delete Token', 'Are you sure delete this token import?', () => App.Network.deleteToken('${mint}')), 300);">
+                                <i class="fa-solid fa-trash"></i> Delete
+                            </button>
+                        `;
+                    }
+
                     const html = `
                         <div style="display:flex; flex-direction:column; gap:12px; margin-top:20px; width:100%; min-width: 80vw; max-width: 350px;">
                             <button class="btn btn-primary" style="padding:14px; font-size:16px; width:100%;" onclick="App.UI.closeSheet('sys-dialog'); App.Network.prepareSend('${mint}');">
@@ -1289,6 +1326,7 @@ function formatChange(change) {
                             <button class="btn btn-secondary" style="padding:14px; font-size:16px; width:100%;" onclick="App.UI.closeSheet('sys-dialog'); App.UI.openSheet('sheet-receive'); App.Network.generateQR();">
                                 <i class="fa-solid fa-arrow-down"></i> Receive
                             </button>
+                            ${deleteBtnHtml}
                         </div>
                     `;
                     document.getElementById('dialog-msg').innerHTML = html;
