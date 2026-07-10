@@ -649,7 +649,7 @@ function formatChange(change) {
                     console.error("Import Error:", e);
                     App.UI.showToast("Format tidak valid. Gunakan JSON, Phrase, atau Base58.", "error"); 
                 }
-        }
+        },
 
                 // Fungsi Mengubah Nama Dompet
                 renameWallet(id) {
@@ -692,7 +692,7 @@ function formatChange(change) {
                         // Reload otomatis agar saldo dan data dompet baru termuat dengan benar
                         setTimeout(() => window.location.reload(), 500);
                     });
-                },
+                }
             },
 
             // Authentication & Security
