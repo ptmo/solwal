@@ -548,6 +548,26 @@ function formatChange(change) {
                     return string;
                 },
 
+                bs58Decode(text) {
+                    const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+                    let bytes = [0];
+                    for (let i = 0; i < text.length; i++) {
+                        const c = text[i];
+                        if (ALPHABET.indexOf(c) === -1) throw new Error("Invalid character");
+                        for (let j = 0; j < bytes.length; j++) bytes[j] *= 58;
+                        bytes[0] += ALPHABET.indexOf(c);
+                        let carry = 0;
+                        for (let j = 0; j < bytes.length; j++) {
+                            bytes[j] += carry;
+                            carry = bytes[j] >> 8;
+                            bytes[j] &= 0xff;
+                        }
+                        while (carry) { bytes.push(carry & 0xff); carry >>= 8; }
+                    }
+                    for (let i = 0; i < text.length && text[i] === '1'; i++) bytes.push(0);
+                    return new Uint8Array(bytes.reverse());
+                },
+
                 // 2. Fungsi Unduh File JSON Asli
                 downloadRawJson(encodedData) {
                     const data = decodeURIComponent(encodedData);
@@ -709,39 +729,47 @@ function formatChange(change) {
                     r.readAsText(f);
                 },
 
-        // 2. Ganti fungsi processImport() yang lama dengan yang baru ini
-        async processImport() {
-                const raw = document.getElementById('import-input').value.trim();
-                try {
-                    let kp;
+        // 2. TIMPA FUNGSI processImport ANDA DENGAN INI
+                async processImport() {
+                    const raw = document.getElementById('import-input').value.trim();
+                    const isId = App.State.lang === 'ID'; // Deteksi bahasa untuk notifikasi
                     
-                    // Format 1: JSON Array
-                    if (raw.startsWith('[')) {
-                        kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(raw)));
-                    } 
-                    // Format 2: 12/24 Word Phrase (Sekarang 100% Kompatibel dengan Phantom)
-                    else if (raw.includes(' ')) {
-                        const seedHex = ethers.utils.mnemonicToSeed(raw);
-                        const derivedPrivKey = await App.Crypto.derivePhantomHD(seedHex);
-                        kp = solanaWeb3.Keypair.fromSeed(derivedPrivKey);
-                    } 
-                    // Format 3: Base58
-                    else {
-                        const secretBytes = this.bs58Decode(raw);
-                        if (secretBytes.length === 64) kp = solanaWeb3.Keypair.fromSecretKey(secretBytes);
-                        else if (secretBytes.length === 32) kp = solanaWeb3.Keypair.fromSeed(secretBytes);
-                        else throw new Error("Base58 invalid length");
+                    try {
+                        let kp;
+                        
+                        // Format 1: JSON Array
+                        if (raw.startsWith('[')) {
+                            kp = solanaWeb3.Keypair.fromSecretKey(new Uint8Array(JSON.parse(raw)));
+                        } 
+                        // Format 2: 12/24 Word Phrase (Sekarang 100% Kompatibel dengan Phantom)
+                        else if (raw.includes(' ')) {
+                            const seedHex = ethers.utils.mnemonicToSeed(raw);
+                            const derivedPrivKey = await App.Crypto.derivePhantomHD(seedHex);
+                            kp = solanaWeb3.Keypair.fromSeed(derivedPrivKey);
+                        } 
+                        // Format 3: Base58
+                        else {
+                            const secretBytes = this.bs58Decode(raw);
+                            if (secretBytes.length === 64) kp = solanaWeb3.Keypair.fromSecretKey(secretBytes);
+                            else if (secretBytes.length === 32) kp = solanaWeb3.Keypair.fromSeed(secretBytes);
+                            else throw new Error("Base58 invalid length");
+                        }
+                        
+                        this.tempData = { priv: Array.from(kp.secretKey), pub: kp.publicKey.toString() };
+                        App.Auth.initSetup('view-import');
+                        
+                    } catch(e) { 
+                        console.error("Import Error:", e);
+                        
+                        // Menampilkan Error dengan Dual Bahasa
+                        const errMsg = isId 
+                            ? "Format tidak valid. Gunakan JSON, Phrase, atau Base58." 
+                            : "Invalid format. Use JSON, Phrase, or Base58.";
+                            
+                        App.UI.showToast(errMsg, "error"); 
                     }
-                    
-                    this.tempData = { priv: Array.from(kp.secretKey), pub: kp.publicKey.toString() };
-                    App.Auth.initSetup('view-import');
-                    
-                } catch(e) { 
-                    console.error("Import Error:", e);
-                    App.UI.showToast("Format tidak valid. Gunakan JSON, Phrase, atau Base58.", "error"); 
-                }
-        },
-
+                },
+                
                 // Fungsi Mengubah Nama Dompet
                 renameWallet(id) {
                     const isId = App.State.lang === 'ID';
