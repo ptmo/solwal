@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catcitcut ($CATCIT) - The Horned Cat of Crypto</title>
+    
+    <!-- Google Fonts: Rajdhani (Futuristic Headings) & Inter (Clean Body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* --- CSS VARIABLES --- */
+        :root {
+            --bg-dark: #030504;
+            --neon-green: #10E573;
+            --neon-glow: rgba(16, 229, 115, 0.3);
+            --glass-bg: rgba(255, 255, 255, 0.02);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --text-main: #ffffff;
+            --text-muted: #a0aab2;
+            --font-heading: 'Rajdhani', sans-serif;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        /* --- RESET & BASE --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* Ambient Background Glow */
+        .ambient-glow {
+            position: fixed;
+            top: -20%;
+            left: -10%;
+            width: 50vw;
+            height: 50vw;
+            background: radial-gradient(circle, var(--neon-glow) 0%, rgba(0,0,0,0) 70%);
+            z-index: -1;
+            filter: blur(90px);
+            opacity: 0.5;
+            animation: pulseGlow 8s infinite alternate ease-in-out;
+        }
+
+        .ambient-glow.right {
+            top: 50%;
+            left: 60%;
+            background: radial-gradient(circle, rgba(16, 229, 115, 0.15) 0%, rgba(0,0,0,0) 70%);
+        }
+
+        /* --- TYPOGRAPHY --- */
+        h1, h2, h3, h4 {
+            font-family: var(--font-heading);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        h1 { font-size: 3.5rem; line-height: 1.1; margin-bottom: 20px; }
+        h2 { font-size: 2.5rem; margin-bottom: 20px; color: var(--neon-green); }
+        h3 { font-size: 1.5rem; margin-bottom: 15px; }
+        p { color: var(--text-muted); margin-bottom: 20px; font-size: 1.1rem; }
+        
+        .highlight { color: var(--neon-green); }
+
+        /* --- GLASSMORPHISM UTILITIES --- */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 40px;
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px var(--neon-glow);
+            border-color: rgba(16, 229, 115, 0.2);
+        }
+
+        /* --- BUTTONS --- */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-family: var(--font-heading);
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--neon-green);
+            color: var(--bg-dark);
+            box-shadow: 0 0 20px var(--neon-glow);
+        }
+
+        .btn-primary:hover {
+            background: #0dd167;
+            box-shadow: 0 0 30px rgba(16, 229, 115, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--neon-green);
+            border: 1px solid var(--neon-green);
+        }
+
+        .btn-outline:hover {
+            background: rgba(16, 229, 115, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* --- NAVBAR --- */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 20px 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: rgba(3, 5, 4, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .nav-logo img {
+            height: 40px;
+            object-fit: contain;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-links a {
+            color: var(--text-main);
+            text-decoration: none;
+            font-family: var(--font-heading);
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover { color: var(--neon-green); }
+
+        /* --- LAYOUT SECTIONS --- */
+        section {
+            padding: 100px 5%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding-top: 120px;
+        }
+
+        .hero-img {
+            width: 300px;
+            max-width: 100%;
+            border-radius: 50%;
+            box-shadow: 0 0 50px rgba(16, 229, 115, 0.2);
+            animation: float 6s ease-in-out infinite;
+            margin-bottom: 40px;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        /* Split Section (Lore) */
+        .split-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .split-image img {
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 0 40px var(--neon-glow);
+        }
+
+        /* Anti-Roadmap */
+        .anti-roadmap {
+            text-align: center;
+            background: linear-gradient(180deg, transparent, var(--glass-bg), transparent);
+            padding: 120px 5%;
+            margin: 50px 0;
+            border-top: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        /* Grid Sections (Features & How to Buy) */
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-top: 50px;
+        }
+        
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            margin-top: 50px;
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            color: var(--neon-green);
+            margin-bottom: 20px;
+        }
+
+        /* Tokenomics */
+        .tokenomics-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .tokenomics-stats {
+            display: flex;
+            gap: 40px;
+            margin-top: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 30px;
+        }
+        .stat-box h3 { font-size: 2.5rem; color: var(--neon-green); margin: 0; }
+        .stat-box p { font-size: 1rem; color: var(--text-main); margin: 0; text-transform: uppercase; letter-spacing: 1px;}
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--glass-border);
+            padding: 40px 5%;
+            text-align: center;
+            background: rgba(0,0,0,0.5);
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .social-links a {
+            color: var(--text-main);
+            font-size: 1.5rem;
+            transition: all 0.3s;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+        }
+
+        .social-links a:hover {
+            color: var(--bg-dark);
+            background: var(--neon-green);
+            transform: translateY(-3px);
+            box-shadow: 0 0 15px var(--neon-glow);
+        }
+
+        .contract-box {
+            display: inline-block;
+            background: var(--glass-bg);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+            font-family: monospace;
+            color: var(--neon-green);
+            margin-bottom: 20px;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes pulseGlow {
+            0% { opacity: 0.3; transform: scale(1); }
+            100% { opacity: 0.6; transform: scale(1.1); }
+        }
+
+        /* Reveal on Scroll Classes */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* --- RESPONSIVE DESIGN --- */
+        @media (max-width: 968px) {
+            h1 { font-size: 2.5rem; }
+            .split-section { grid-template-columns: 1fr; text-align: center; }
+            .split-section .glass-card { order: 2; }
+            .split-image { order: 1; margin-bottom: 30px; }
+            .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .cta-group { flex-direction: column; }
+            .nav-links { display: none; /* Can add hamburger menu logic here for full production */ }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient Backgrounds -->
+    <div class="ambient-glow"></div>
+    <div class="ambient-glow right"></div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-logo">
+            <!-- Asumsi file logo berbentuk memanjang bernama Catcitcut_20260717_221025_0000.png -->
+            <img src="Catcitcut_20260717_221025_0000.png" alt="Catcitcut Logo" onerror="this.outerHTML='<h2 style=\'margin:0; font-size:1.8rem;\'>CATCITCUT</h2>'">
+        </div>
+        <div class="nav-links">
+            <a href="#about">The Lore</a>
+            <a href="#features">Smart Contract</a>
+            <a href="#tokenomics">Tokenomics</a>
+            <a href="#how-to-buy">How to Buy</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero reveal">
+        <img src="1000319745-picsay_2.jpg" alt="The Horned Cat" class="hero-img">
+        <h1>Kucing Biasa Hanya Mengeong.<br><span class="highlight">Kucing Bertanduk Menaklukkan Pasar.</span></h1>
+        <p style="max-width: 600px;">Era koin-koin anjing yang usang telah berakhir. Bangkit dari abu bear market, Catcitcut ($CATCIT) hadir membawa revolusi green candle. Tanpa pajak, dan 100% didorong oleh kekuatan komunitas murni.</p>
+        <div class="cta-group">
+            <a href="#how-to-buy" class="btn btn-primary"><i class="fa-solid fa-cart-shopping"></i> Beli $CATCIT</a>
+            <a href="#" class="btn btn-outline"><i class="fa-solid fa-chart-line"></i> Lihat Grafik</a>
+            <a href="#" class="btn btn-outline"><i class="fa-brands fa-telegram"></i> Gabung Pasukan</a>
+        </div>
+    </section>
+
+    <!-- Lore Section -->
+    <section id="about" class="split-section reveal">
+        <div class="glass-card">
+            <h2>Terlahir dari Api Volatilitas</h2>
+            <p>Di kedalaman blockchain, saat pasar dipenuhi warna merah dan para trader mulai kehilangan harapan, sebuah anomali terjadi. Energi optimisme yang tersisa dari para <em>diamond hands</em> menyatu dan memicu sebuah smart contract purba. Dari kilatan kode tersebut, lahirlah <strong>Catcitcut</strong>.</p>
+            <p>Ia bukanlah kucing rumahan biasa. Ia adalah manifestasi dari semangat <em>bull market</em>. Terlahir dengan sepasang tanduk kokoh, ia siap menyeruduk setiap garis resistance. Matanya yang menyala hijau pekat adalah bukti bahwa ia buta terhadap warna merah; visinya hanyalah pertumbuhan dan keuntungan.</p>
+        </div>
+        <div class="split-image">
+            <img src="1000319745-picsay_2.jpg" alt="Catcitcut Aura">
+        </div>
+    </section>
+
+    <!-- Anti Roadmap Manifesto -->
+    <div class="anti-roadmap reveal">
+        <h2>Kami Tidak Menjual Janji Kosong.<br><span class="highlight">Kami Membangun Pergerakan.</span></h2>
+        <p style="max-width: 800px; margin: 0 auto;">Coba perhatikan sekeliling Anda. Berapa banyak meme coin yang menjanjikan "Metaverse" atau "NFT" di roadmap mereka, hanya untuk berujung scam? Ratusan. Catcitcut menolak omong kosong tersebut. Kami tidak memiliki roadmap multi-fase. Jalan kami hanya ada satu: <strong>NAIK</strong>. Vibe adalah utilitas kami. Komunitas adalah roadmap kami.</p>
+    </div>
+
+    <!-- Features Section -->
+    <section id="features" class="reveal">
+        <div style="text-align: center; margin-bottom: 40px;">
+            <h2>Superioritas <span class="highlight">Smart Contract</span></h2>
+            <p>Ditenagai arsitektur Solidity ^0.8.24 kelas dunia. Bukan sekadar meme, ini adalah mahakarya teknologi.</p>
+        </div>
+        <div class="grid-4">
+            <div class="glass-card">
+                <i class="fa-solid fa-bolt feature-icon"></i>
+                <h3>EIP-2612 Gasless</h3>
+                <p>Lupakan gas fee mahal untuk sekadar <em>approve</em>! Kontrak kami mendukung fitur persetujuan tanpa gas melalui signature ECDSA. Cepat, efisien, dan modern.</p>
+            </div>
+            <div class="glass-card">
+                <i class="fa-solid fa-shield-halved feature-icon"></i>
+                <h3>100% Anti-Blacklist</h3>
+                <p>Tidak ada fungsi tersembunyi yang bisa memblokir dompet Anda. Catcitcut menjunjung tinggi desentralisasi. Token Anda adalah milik Anda sepenuhnya.</p>
+            </div>
+            <div class="glass-card">
+                <i class="fa-solid fa-fire-flame-curved feature-icon"></i>
+                <h3>Deflasi Sukarela (Burn)</h3>
+                <p>Dilengkapi fungsi <em>burn</em> internal. Siapa pun dapat membakar token mereka sendiri untuk mengurangi total suplai secara permanen, menjadikan $CATCIT semakin langka.</p>
+            </div>
+            <div class="glass-card">
+                <i class="fa-solid fa-code feature-icon"></i>
+                <h3>Custom Errors (Ultra Gas Optimized)</h3>
+                <p>Menggunakan standar <em>Custom Errors</em> mutakhir untuk menghemat <em>gas fee</em> ekstrem pada setiap transaksi. Kode bersih, aman, tanpa celah minting tambahan.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tokenomics Section -->
+    <section id="tokenomics" class="reveal tokenomics-wrapper">
+        <h2>Ekonomi Token <span class="highlight">Murni</span></h2>
+        <p>Tidak ada alokasi tim. Tidak ada presale. 100% Keadilan sejak Hari Pertama.</p>
+        
+        <div class="glass-card" style="width: 100%; margin-top: 30px;">
+            <div class="tokenomics-stats">
+                <div class="stat-box">
+                    <h3>10 Miliar</h3>
+                    <p>Total Supply</p>
+                </div>
+                <div class="stat-box">
+                    <h3>0%</h3>
+                    <p>Tax Jual / Beli</p>
+                </div>
+                <div class="stat-box">
+                    <h3>100%</h3>
+                    <p>Suplai ke Likuiditas</p>
+                </div>
+                <div class="stat-box">
+                    <h3><i class="fa-solid fa-lock"></i></h3>
+                    <p>Contract Renounced</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How to Buy Section -->
+    <section id="how-to-buy" class="reveal">
+        <h2 style="text-align: center;">Cara Bergabung dengan <span class="highlight">Revolusi</span></h2>
+        <div class="grid-3">
+            <div class="glass-card">
+                <i class="fa-solid fa-wallet feature-icon"></i>
+                <h3>1. Siapkan Wallet</h3>
+                <p>Unduh dompet web3 non-kustodial seperti MetaMask atau TrustWallet. Amankan seed phrase Anda.</p>
+            </div>
+            <div class="glass-card">
+                <i class="fa-brands fa-ethereum feature-icon"></i>
+                <h3>2. Isi Saldo</h3>
+                <p>Beli koin native jaringan (ETH/BNB/SOL) dari bursa pilihan Anda dan transfer ke alamat dompet Anda.</p>
+            </div>
+            <div class="glass-card">
+                <i class="fa-solid fa-right-left feature-icon"></i>
+                <h3>3. Swap & HODL</h3>
+                <p>Kunjungi DEX (Uniswap/Pancakeswap), masukkan Contract Address $CATCIT, tukar (swap), dan pegang erat-erat!</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <h2>Kucing Bertanduk Telah <span class="highlight">Bangkit.</span></h2>
+        <p>Bergabunglah dengan pergerakan budaya terdahsyat di blockchain.</p>
+        
+        <div class="contract-box">
+            CA: 0x0000000000000000000000000000000000000000 <!-- Ganti dengan CA asli Anda nanti -->
+        </div>
+
+        <div class="social-links">
+            <a href="#" aria-label="Telegram"><i class="fa-brands fa-telegram"></i></a>
+            <a href="#" aria-label="Twitter"><i class="fa-brands fa-x-twitter"></i></a>
+            <a href="#" aria-label="DexScreener"><i class="fa-solid fa-chart-simple"></i></a>
+        </div>
+
+        <p style="font-size: 0.9rem; opacity: 0.5; margin-top: 30px;">
+            © 2026 Catcitcut. Hak Cipta Dilindungi.<br>
+            Disclaimer: Cryptocurrency sangat fluktuatif. Kucing ini tidak memberikan saran keuangan, ia hanya memberikan momentum.
+        </p>
+    </footer>
+
+    <!-- JavaScript for Smooth Scroll Reveal Animation -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const reveals = document.querySelectorAll(".reveal");
+
+            const revealOnScroll = () => {
+                const windowHeight = window.innerHeight;
+                const elementVisible = 100;
+
+                reveals.forEach((reveal) => {
+                    const elementTop = reveal.getBoundingClientRect().top;
+                    if (elementTop < windowHeight - elementVisible) {
+                        reveal.classList.add("active");
+                    }
+                });
+            };
+
+            // Initial check
+            revealOnScroll();
+
+            // Check on scroll
+            window.addEventListener("scroll", revealOnScroll);
+        });
+    </script>
+</body>
+</html>
