@@ -265,7 +265,7 @@
         .token-stat {
             padding: 30px;
             border-radius: 15px;
-            background: rgba(16, 229, 115, 0.05);
+            background: none;
             border: 1px solid var(--glass-border);
         }
         .token-stat h3 { font-size: 2.5rem; color: var(--primary-green); margin-bottom: 10px; }
@@ -288,13 +288,13 @@
         
         .step-number {
             position: absolute;
-            bottom: -25px;     /* Diletakkan di bawah agar tidak menabrak judul h3 */
-            right: -15px;      /* Ditarik sedikit keluar kotak untuk efek terpotong yang estetik */
-            font-size: 9rem;   /* Dibuat SANGAT BESAR agar berfungsi sebagai tekstur background */
+            bottom: 10px;      /* Dibuat positif agar pas menempel di dalam kotak bagian bawah */
+            right: 15px;       /* Dibuat positif agar tidak keluar dari batas kanan kotak */
+            font-size: 6rem;   
             line-height: 1;
             font-family: 'Orbitron', sans-serif;
-            color: rgba(16, 229, 115, 0.04); /* Opasitas DITURUNKAN EKSTREM (4%) agar teks utama 100% terbaca */
-            font-weight: 900;
+            color: rgba(16, 229, 115, 0.08); 
+            font-weight: 700;
             z-index: 0;
             pointer-events: none;
             user-select: none;
