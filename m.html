@@ -160,16 +160,16 @@
 
         /* === HERO SECTION === */
         .hero {
-            min-height: 100vh;
+            /* Hapus min-height: 100vh; */
+            padding: 130px 0 40px 0; /* Beri jarak atas untuk navbar, dan jarak bawah agar tidak terlalu jauh */
             display: flex;
             align-items: center;
-            padding-top: 80px;
         }
 
         .hero-content {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 50px;
+            gap: 40px;
             align-items: center;
         }
 
@@ -200,7 +200,7 @@
         }
 
         /* === LORE & SECTIONS === */
-        section { padding: 100px 0; }
+        section { padding: 50px 0; }
         
         .section-header {
             text-align: center;
@@ -274,20 +274,35 @@
         /* === HOW TO BUY === */
         .htb-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* Minmax disesuaikan agar 4 kotak sejajar rapi di PC */
             gap: 30px;
             position: relative;
         }
-        .htb-step { position: relative; z-index: 1; }
+        
+        .htb-step { 
+            position: relative; 
+            z-index: 1; 
+            overflow: hidden; /* Mencegah nomor tumpang tindih/keluar dari batas kotak */
+        }
+        
         .step-number {
             position: absolute;
-            top: -20px;
-            right: 20px;
-            font-size: 4rem;
+            top: 10px;     /* Menurunkan nomor agar masuk tepat di pojok kanan atas dalam kotak */
+            right: 15px;
+            font-size: 5.5rem; /* Ukuran dibesarkan untuk efek watermark */
+            line-height: 1;
             font-family: 'Orbitron', sans-serif;
-            color: rgba(16, 229, 115, 0.1);
+            color: rgba(16, 229, 115, 0.08); /* Opasitas diturunkan agar teks utama tetap jelas terbaca */
             font-weight: 900;
-            z-index: -1;
+            z-index: 0;
+            pointer-events: none; /* Agar tidak mengganggu klik/seleksi teks */
+            user-select: none;
+        }
+        
+        /* Memastikan teks tetap berada di atas efek nomor watermark */
+        .htb-step h3, .htb-step p {
+            position: relative;
+            z-index: 2; 
         }
 
         /* === FOOTER === */
@@ -362,12 +377,21 @@
         }
 
         @media (max-width: 768px) {
-            .nav-links { display: none; } /* Simplified mobile nav for snippet */
-            .hero-content { grid-template-columns: 1fr; text-align: center; }
+            .nav-links { display: none; } 
+            .hero-content { 
+                grid-template-columns: 1fr; 
+                text-align: center; 
+                gap: 20px; /* Merapatkan jarak antara gambar dan teks di mode HP */
+            }
             .hero-buttons { justify-content: center; }
-            .hero-image { order: -1; margin: 0 auto; }
+            .hero-image { order: -1; margin: 0 auto; width: 80%; } /* Atur lebar gambar di HP */
             .hero-text h1 { font-size: 2.2rem; }
-            section { padding: 60px 0; }
+            
+            /* Khusus mode HP, jarak antar section dirapatkan lagi */
+            section { padding: 40px 0; }
+            
+            /* Khusus hero di mode HP */
+            .hero { padding: 110px 0 30px 0; }
         }
     </style>
 </head>
@@ -405,7 +429,7 @@
             </div>
             <div class="hero-image">
                 <!-- Memanggil Gambar Kucing Utama -->
-                <img src="1000319745-picsay_2.jpg" alt="Catcitcut Demon Cat">
+                <img src="1000319745-picsay_2.png" alt="Catcitcut Demon Cat">
             </div>
         </div>
     </section>
@@ -414,7 +438,7 @@
     <section id="lore">
         <div class="container lore-grid reveal">
             <div class="lore-image">
-                <img src="1000319745-picsay_2.jpg" alt="Catcitcut Eyes">
+                <img src="1000319745-picsay_2.png" alt="Catcitcut Eyes">
             </div>
             <div class="lore-text">
                 <h2 class="brand-font">Terlahir dari Api <span class="text-green">Volatilitas</span></h2>
