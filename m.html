@@ -141,7 +141,34 @@
             align-items: center;
         }
 
-        .nav-logo img { height: 40px; object-fit: contain; }
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px; /* Jarak antara gambar logo dan teks */
+            text-decoration: none;
+        }
+
+        .nav-logo img { 
+            height: 40px; 
+            object-fit: contain; 
+        }
+
+        .brand-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-green);
+            text-shadow: 0 0 10px var(--primary-green-glow);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Wrapper menu desktop */
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
 
         .nav-links {
             display: flex;
@@ -157,6 +184,19 @@
         }
 
         .nav-links a:hover { color: var(--primary-green); }
+
+        .nav-btn {
+            padding: 8px 20px;
+        }
+
+        /* Sembunyikan hamburger di PC */
+        .hamburger {
+            display: none;
+            cursor: pointer;
+            font-size: 1.8rem;
+            color: var(--primary-green);
+            transition: transform 0.3s ease;
+        }
 
         /* === HERO SECTION === */
         .hero {
@@ -422,7 +462,6 @@
         }
 
         @media (max-width: 768px) {
-            .nav-links { display: none; } 
             .hero-content { 
                 grid-template-columns: 1fr; 
                 text-align: center; 
@@ -437,6 +476,47 @@
             
             /* Khusus hero di mode HP */
             .hero { padding: 110px 0 30px 0; }
+            .hamburger {
+                display: block; /* Munculkan hamburger di HP */
+            }
+
+            .nav-menu {
+                position: absolute;
+                top: 70px; /* Tepat di bawah navbar */
+                left: 0;
+                width: 100%;
+                background: rgba(5, 5, 5, 0.98);
+                backdrop-filter: blur(15px);
+                border-bottom: 1px solid var(--glass-border);
+                flex-direction: column;
+                padding: 30px 20px;
+                gap: 25px;
+                text-align: center;
+                
+                /* Animasi smooth turun dari atas */
+                opacity: 0;
+                visibility: hidden;
+                transform: translateY(-20px);
+                transition: all 0.3s ease;
+            }
+
+            /* Class saat menu terbuka */
+            .nav-menu.active {
+                opacity: 1;
+                visibility: visible;
+                transform: translateY(0);
+            }
+
+            .nav-links {
+                flex-direction: column;
+                gap: 25px;
+            }
+
+            .nav-btn {
+                width: 100%; /* Tombol lebar penuh di HP */
+                max-width: 300px;
+                margin-top: 10px; /* Memberi jarak extra dari menu di atasnya */
+            }
         }
     </style>
 </head>
@@ -448,19 +528,28 @@
     <nav>
         <div class="container nav-container">
             <a href="#" class="nav-logo">
-                <!-- Memanggil Logo Text Sesuai Instruksi -->
-                <img src="Catcitcut_20260717_221025_0000.png" alt="Catcitcut Logo">
+                <img src="cc.png" alt="Logo">
+                <span class="brand-text">Catcitcut</span>
             </a>
-            <ul class="nav-links brand-font">
-                <li><a href="#lore">Kisah</a></li>
-                <li><a href="#features">Fitur</a></li>
-                <li><a href="#tokenomics">Tokenomics</a></li>
-                <li><a href="#how-to-buy">Cara Beli</a></li>
-            </ul>
-            <a href="#how-to-buy" class="btn btn-outline" style="padding: 8px 20px;">Beli $CATCIT</a>
+            
+            <!-- Wrapper menu untuk menampung link dan tombol beli -->
+            <div class="nav-menu">
+                <ul class="nav-links brand-font">
+                    <li><a href="#lore">Kisah</a></li>
+                    <li><a href="#features">Fitur</a></li>
+                    <li><a href="#tokenomics">Tokenomics</a></li>
+                    <li><a href="#how-to-buy">Cara Beli</a></li>
+                </ul>
+                <a href="#how-to-buy" class="btn btn-outline nav-btn">Beli $CATCIT</a>
+            </div>
+
+            <!-- Tombol Hamburger -->
+            <div class="hamburger">
+                <i class="fa-solid fa-bars"></i>
+            </div>
         </div>
     </nav>
-
+    
     <!-- HERO SECTION -->
     <section class="hero">
         <div class="container hero-content reveal">
@@ -474,7 +563,7 @@
             </div>
             <div class="hero-image">
                 <!-- Memanggil Gambar Kucing Utama -->
-                <img src="1000319745-picsay.png" alt="Catcitcut Demon Cat">
+                <img src="ccc.png" alt="Demon Cat">
             </div>
         </div>
     </section>
@@ -483,7 +572,7 @@
     <section id="lore">
         <div class="container lore-grid reveal">
             <div class="lore-image">
-                <img src="1000319745-picsay.png" alt="Catcitcut Eyes">
+                <img src="cc.png" alt="Eyes">
             </div>
             <div class="lore-text">
                 <h2 class="brand-font">Terlahir dari Api <span class="text-green">Volatilitas</span></h2>
@@ -601,7 +690,7 @@
     <!-- FOOTER -->
     <footer class="reveal">
         <div class="container">
-            <img src="Catcitcut_20260717_221025_0000.png" alt="Catcitcut Logo" style="height: 50px; margin-bottom: 20px;">
+            <img src="c.png" alt="Logo" style="height: 50px; margin-bottom: 20px;">
             <p>Bergabunglah dengan pergerakan budaya ini. Pegang erat tokenmu, Kucing Bertanduk telah bangkit.</p>
             
             <div class="social-links">
@@ -661,6 +750,37 @@
                 console.error('Gagal menyalin teks: ', err);
             });
         }
+
+        // Animasi Hamburger Menu & Ganti Ikon
+        const hamburger = document.querySelector('.hamburger');
+        const navMenu = document.querySelector('.nav-menu');
+        const hamburgerIcon = document.querySelector('.hamburger i');
+        const navItems = document.querySelectorAll('.nav-links a, .nav-btn');
+
+        hamburger.addEventListener('click', () => {
+            navMenu.classList.toggle('active');
+            
+            // Toggle ganti ikon FontAwesome (Bars <-> Xmark)
+            if (navMenu.classList.contains('active')) {
+                hamburgerIcon.classList.remove('fa-bars');
+                hamburgerIcon.classList.add('fa-xmark');
+                hamburgerIcon.style.transform = 'rotate(90deg)'; // Efek putar halus
+            } else {
+                hamburgerIcon.classList.remove('fa-xmark');
+                hamburgerIcon.classList.add('fa-bars');
+                hamburgerIcon.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        // Tutup menu otomatis jika salah satu link atau tombol Beli diklik
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                navMenu.classList.remove('active');
+                hamburgerIcon.classList.remove('fa-xmark');
+                hamburgerIcon.classList.add('fa-bars');
+                hamburgerIcon.style.transform = 'rotate(0deg)';
+            });
+        });
     </script>
 </body>
 </html>
