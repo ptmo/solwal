@@ -282,23 +282,31 @@
             position: relative; 
             z-index: 1; 
             overflow: hidden; 
+            display: flex;
+            flex-direction: column;
         }
         
         .step-number {
             position: absolute;
-            top: 20px;         /* Diturunkan agar pucuk angka tidak terpotong */
-            right: 25px;       /* Digeser ke kiri agar tidak menabrak border */
-            font-size: 4.5rem; /* Ukuran disesuaikan sedikit agar pas dengan padding kotak */
+            bottom: -25px;     /* Diletakkan di bawah agar tidak menabrak judul h3 */
+            right: -15px;      /* Ditarik sedikit keluar kotak untuk efek terpotong yang estetik */
+            font-size: 9rem;   /* Dibuat SANGAT BESAR agar berfungsi sebagai tekstur background */
             line-height: 1;
             font-family: 'Orbitron', sans-serif;
-            color: rgba(16, 229, 115, 0.15); /* Opasitas dinaikkan sedikit agar lebih jelas */
+            color: rgba(16, 229, 115, 0.04); /* Opasitas DITURUNKAN EKSTREM (4%) agar teks utama 100% terbaca */
             font-weight: 900;
             z-index: 0;
             pointer-events: none;
             user-select: none;
         }
         
-        .htb-step h3, .htb-step p {
+        .htb-step h3 {
+            position: relative;
+            z-index: 2; 
+            margin-bottom: 12px;
+        }
+
+        .htb-step p {
             position: relative;
             z-index: 2; 
         }
