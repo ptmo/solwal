@@ -274,37 +274,35 @@
         /* === HOW TO BUY === */
         .htb-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* Minmax disesuaikan agar 4 kotak sejajar rapi di PC */
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 30px;
-            position: relative;
         }
         
         .htb-step { 
             position: relative; 
             z-index: 1; 
-            overflow: hidden; /* Mencegah nomor tumpang tindih/keluar dari batas kotak */
+            overflow: hidden; 
         }
         
         .step-number {
             position: absolute;
-            top: 10px;     /* Menurunkan nomor agar masuk tepat di pojok kanan atas dalam kotak */
-            right: 15px;
-            font-size: 5.5rem; /* Ukuran dibesarkan untuk efek watermark */
+            top: 20px;         /* Diturunkan agar pucuk angka tidak terpotong */
+            right: 25px;       /* Digeser ke kiri agar tidak menabrak border */
+            font-size: 4.5rem; /* Ukuran disesuaikan sedikit agar pas dengan padding kotak */
             line-height: 1;
             font-family: 'Orbitron', sans-serif;
-            color: rgba(16, 229, 115, 0.08); /* Opasitas diturunkan agar teks utama tetap jelas terbaca */
+            color: rgba(16, 229, 115, 0.15); /* Opasitas dinaikkan sedikit agar lebih jelas */
             font-weight: 900;
             z-index: 0;
-            pointer-events: none; /* Agar tidak mengganggu klik/seleksi teks */
+            pointer-events: none;
             user-select: none;
         }
         
-        /* Memastikan teks tetap berada di atas efek nomor watermark */
         .htb-step h3, .htb-step p {
             position: relative;
             z-index: 2; 
         }
-
+        
         /* === FOOTER === */
         footer {
             border-top: 1px solid var(--glass-border);
@@ -369,6 +367,45 @@
             transform: translateY(0);
         }
 
+        /* Efek Hover untuk Contract Box */
+        .contract-box {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+        .contract-box:hover {
+            background: rgba(16, 229, 115, 0.1);
+            box-shadow: 0 0 15px var(--primary-green-glow);
+            transform: scale(1.02);
+        }
+
+        /* === TOAST NOTIFICATION === */
+        #toast {
+            visibility: hidden;
+            min-width: 280px;
+            background-color: var(--primary-green);
+            color: #000;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 9999;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            box-shadow: 0 0 20px var(--primary-green-glow);
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s;
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+
         /* === MOBILE RESPONSIVE === */
         @media (max-width: 992px) {
             .hero-text h1 { font-size: 2.8rem; }
@@ -429,7 +466,7 @@
             </div>
             <div class="hero-image">
                 <!-- Memanggil Gambar Kucing Utama -->
-                <img src="1000319745-picsay_2.png" alt="Catcitcut Demon Cat">
+                <img src="1000319745-picsay.png" alt="Catcitcut Demon Cat">
             </div>
         </div>
     </section>
@@ -438,7 +475,7 @@
     <section id="lore">
         <div class="container lore-grid reveal">
             <div class="lore-image">
-                <img src="1000319745-picsay_2.png" alt="Catcitcut Eyes">
+                <img src="1000319745-picsay.png" alt="Catcitcut Eyes">
             </div>
             <div class="lore-text">
                 <h2 class="brand-font">Terlahir dari Api <span class="text-green">Volatilitas</span></h2>
@@ -565,8 +602,9 @@
                 <a href="#"><i class="fa-solid fa-chart-simple"></i></a>
             </div>
 
-            <div class="contract-box">
-                CA: 0x0000000000000000000000000000000000000000
+            <div class="contract-box" onclick="copyCA()" title="Klik untuk menyalin">
+                CA: <span id="ca-text">0x0000000000000000000000000000000000000000</span>
+                <i class="fa-regular fa-copy" style="margin-left: 10px;"></i>
             </div>
 
             <p style="font-size: 0.8rem; color: #666; max-width: 800px; margin: 0 auto;">
@@ -574,6 +612,8 @@
             </p>
         </div>
     </footer>
+
+    <div id="toast"><i class="fa-solid fa-check"></i> Contract Address berhasil tersalin!</div>
 
     <!-- Vanilla JS untuk Animasi Smooth Scroll (Lightweight Intersection Observer) -->
     <script>
@@ -597,6 +637,22 @@
                 revealOnScroll.observe(reveal);
             });
         });
+
+        // Fungsi Copy Contract Address & Munculkan Toast
+        function copyCA() {
+            const caText = document.getElementById("ca-text").innerText;
+            navigator.clipboard.writeText(caText).then(() => {
+                const toast = document.getElementById("toast");
+                toast.classList.add("show");
+                
+                // Hilangkan toast setelah 3 detik
+                setTimeout(() => { 
+                    toast.classList.remove("show"); 
+                }, 3000);
+            }).catch(err => {
+                console.error('Gagal menyalin teks: ', err);
+            });
+        }
     </script>
 </body>
 </html>
